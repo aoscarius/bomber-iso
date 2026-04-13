@@ -1,0 +1,279 @@
+/* ============================================================
+   ar.css — WebXR Augmented Reality UI styles
+   Covers: AR entry overlay, AR HUD (in-session controls),
+   scanning animation, requirement checklist, badge.
+   ============================================================ */
+
+/* ── AR entry button in main menu ──────────────────────────── */
+#ar-entry-btn {
+  display: none;           /* Hidden until JS confirms WebXR support */
+  border-color: var(--portal-a, #0099ff);
+  color: var(--portal-a, #0099ff);
+}
+#ar-entry-btn.ar-available {
+  display: block;
+}
+#ar-entry-btn:hover {
+  background: rgba(0, 153, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 153, 255, 0.2);
+}
+
+/* ── AR entry overlay panel ─────────────────────────────────── */
+/* #ar-overlay has display:none inline; shown via JS display:flex */
+.ar-panel {
+  background: rgba(12, 12, 20, 0.98);
+  border: 1px solid var(--border-bright, #383848);
+  border-top: 3px solid var(--portal-a, #0099ff);
+  padding: 40px 48px;
+  max-width: 480px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow:
+    0 0 80px rgba(0, 153, 255, 0.12),
+    0 0 160px rgba(0, 0, 0, 0.6);
+}
+
+.ar-icon {
+  font-size: 48px;
+  color: var(--portal-a, #0099ff);
+  filter: drop-shadow(0 0 16px rgba(0, 153, 255, 0.5));
+  line-height: 1;
+  animation: ar-icon-pulse 2.5s ease-in-out infinite;
+}
+@keyframes ar-icon-pulse {
+  0%, 100% { opacity: 1;   filter: drop-shadow(0 0 16px rgba(0,153,255,0.5)); }
+  50%       { opacity: 0.7; filter: drop-shadow(0 0 32px rgba(0,153,255,0.9)); }
+}
+
+.ar-title {
+  font-family: var(--font-ui, 'Rajdhani', sans-serif);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  color: var(--portal-a, #0099ff);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.ar-subtitle {
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--text-dim, #5a5a72);
+  text-transform: uppercase;
+}
+
+.ar-desc {
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-mid, #9090a8);
+  text-align: center;
+  max-width: 340px;
+}
+
+/* ── Requirements checklist ─────────────────────────────────── */
+.ar-requirements {
+  width: 100%;
+  border: 1px solid var(--border, #252530);
+  background: var(--bg-surface, #17171f);
+}
+
+.ar-req-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border, #252530);
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim, #5a5a72);
+}
+.ar-req-row:last-child { border-bottom: none; }
+
+.ar-req-check {
+  color: var(--text-dim, #5a5a72);
+  animation: ar-checking 1s step-end infinite;
+}
+@keyframes ar-checking { 50% { opacity: 0.3; } }
+
+.ar-req-ok  { color: var(--success, #00e87a); font-size: 14px; }
+.ar-req-no  { color: var(--danger,  #ff2244); }
+
+/* ── Error message ──────────────────────────────────────────── */
+.ar-error {
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 11px;
+  color: var(--danger, #ff2244);
+  text-align: center;
+  min-height: 0;
+  transition: min-height 0.2s;
+}
+.ar-error:not(:empty) { min-height: 24px; }
+
+/* ── Entry buttons ──────────────────────────────────────────── */
+.ar-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* ── AR HUD (shown inside XR session) ──────────────────────── */
+/* #ar-hud is inside #ar-dom-overlay which is display:none until session starts */
+#ar-hud {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+/* Top bar */
+.ar-hud-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(8, 8, 16, 0.75);
+  border-bottom: 1px solid rgba(0, 153, 255, 0.3);
+  pointer-events: none;
+}
+
+.ar-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--portal-a, #0099ff);
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--portal-a, #0099ff);
+}
+
+.ar-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--portal-a, #0099ff);
+  animation: ar-badge-pulse 1s ease-in-out infinite;
+}
+@keyframes ar-badge-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--portal-a, #0099ff); }
+  50%       { opacity: 0.4; box-shadow: none; }
+}
+
+#ar-status {
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-mid, #9090a8);
+}
+
+/* ── Surface scanning animation ─────────────────────────────── */
+.ar-scan-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ar-scan-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  border: 2px solid var(--portal-a, #0099ff);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: ar-scan-expand 2s ease-out infinite;
+  opacity: 0;
+}
+.ar-scan-ring:nth-child(2) { animation-delay: 0.6s; }
+.ar-scan-ring:nth-child(3) { animation-delay: 1.2s; }
+
+@keyframes ar-scan-expand {
+  0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.8; }
+  100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
+}
+
+/* ── Bottom controls ────────────────────────────────────────── */
+.ar-hud-bottom {
+  padding: 16px;
+  background: rgba(8, 8, 16, 0.8);
+  border-top: 1px solid rgba(0, 153, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: all;
+}
+
+.ar-transform-row,
+.ar-action-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Icon buttons (scale / rotate) */
+.ar-icon-btn {
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 153, 255, 0.1);
+  border: 1px solid rgba(0, 153, 255, 0.4);
+  color: var(--portal-a, #0099ff);
+  font-size: 20px;
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.ar-icon-btn:active {
+  background: rgba(0, 153, 255, 0.3);
+  transform: scale(0.92);
+}
+
+/* Action buttons (place / exit) */
+.ar-action-btn {
+  padding: 12px 24px;
+  background: rgba(0, 153, 255, 0.1);
+  border: 1px solid rgba(0, 153, 255, 0.5);
+  color: var(--portal-a, #0099ff);
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  flex: 1;
+  max-width: 180px;
+  text-align: center;
+}
+.ar-action-btn:active    { transform: scale(0.96); }
+.ar-action-btn.primary   {
+  background: rgba(0, 153, 255, 0.2);
+  border-color: var(--portal-a, #0099ff);
+  box-shadow: 0 0 20px rgba(0, 153, 255, 0.25);
+}
+.ar-action-btn.danger    {
+  background: rgba(255, 34, 68, 0.1);
+  border-color: var(--danger, #ff2244);
+  color: var(--danger, #ff2244);
+}
+.ar-action-btn.danger:active { background: rgba(255,34,68,0.25); }

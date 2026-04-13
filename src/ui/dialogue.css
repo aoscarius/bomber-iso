@@ -1,0 +1,261 @@
+/* ============================================================
+   dialogue.css — RPG-style dialogue panel
+   Canonical styles for the bottom-anchored AMICA dialogue box.
+
+   Class contract (must match dialoguePanel.js):
+     #dialogue-panel          — root element, fixed bottom
+     #dialogue-panel.visible  — shown state (JS adds/removes 'visible')
+     .dlg-avatar              — left column with SVG eye
+     .dlg-avatar-frame        — inner wrapper for eye + name
+     .dlg-eye-svg             — the SVG element
+     .dlg-eye-svg.active      — eye animations enabled
+     .dlg-eye-svg.pulse       — extra pulse animation (AMICA mode)
+     .dlg-speaker-name        — character name label
+     .dlg-text-wrap           — right column
+     .dlg-corner.*            — decorative bracket corners
+     .dlg-text-inner          — contains typed text + cursor
+     .dlg-cursor              — blinking block cursor
+     .dlg-prompt              — "▼ SPACE" indicator
+     .dlg-prompt.visible      — shown when waiting for input
+   ============================================================ */
+
+/* ── Panel root ─────────────────────────────────────────────── */
+#dialogue-panel {
+  --dlg-accent: #ff6a00;   /* Override per speaker via JS inline style */
+
+  position:  fixed;
+  bottom:    0;
+  left:      50%;
+  transform: translateX(-50%) translateY(110%);  /* hidden off-screen */
+  width:     min(860px, 96vw);
+  z-index:   200;
+
+  display:        flex;
+  align-items:    stretch;
+  pointer-events: none;
+
+  border:        1px solid var(--dlg-accent);
+  border-bottom: none;
+  border-top:    3px solid var(--dlg-accent);
+
+  box-shadow:
+    0 -6px 40px rgba(0,0,0,0.7),
+    0 -1px 0 rgba(255,106,0,0.3),
+    inset 0 0 40px rgba(0,0,0,0.4);
+
+  /* Slide-up transition */
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity   0.28s ease;
+  opacity: 0;
+}
+
+/* ── Visible state ──────────────────────────────────────────── */
+#dialogue-panel.visible {
+  transform:      translateX(-50%) translateY(0);
+  opacity:        1;
+  pointer-events: all;
+  cursor:         pointer;
+  /* Sit above controls-legend bar (~30px tall at bottom:0) */
+  bottom: 30px;
+}
+
+/* Scanline overlay */
+#dialogue-panel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Avatar column ──────────────────────────────────────────── */
+.dlg-avatar {
+  flex-shrink:     0;
+  width:           140px;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255,106,0,0.06) 0%, rgba(0,0,0,0.5) 100%);
+  border-right: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+  z-index: 2;
+}
+
+.dlg-avatar-frame {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            10px;
+}
+
+/* ── AMICA eye SVG ─────────────────────────────────────────── */
+.dlg-eye-svg {
+  width:  84px;
+  height: 84px;
+  overflow: visible;
+}
+
+/* Base state — dim, no animation */
+.dlg-eye-svg .eye-ring-outer,
+.dlg-eye-svg .eye-ring-mid,
+.dlg-eye-svg .eye-ticks line {
+  stroke: var(--dlg-accent, #ff6a00);
+  opacity: 0.25;
+  transition: opacity 0.4s, stroke 0.3s;
+}
+.dlg-eye-svg .eye-pupil {
+  fill: var(--dlg-accent, #ff6a00);
+  opacity: 0.25;
+  transition: opacity 0.4s, fill 0.3s;
+}
+.dlg-eye-svg .eye-core {
+  fill: #ffffff;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.dlg-eye-svg .eye-spin {
+  stroke: var(--dlg-accent, #ff6a00);
+  opacity: 0;
+  transform-origin: 40px 40px;
+}
+
+/* Active state — full brightness + animations */
+.dlg-eye-svg.active .eye-ring-outer,
+.dlg-eye-svg.active .eye-ring-mid,
+.dlg-eye-svg.active .eye-ticks line { opacity: 0.9; }
+.dlg-eye-svg.active .eye-pupil      { opacity: 1; }
+.dlg-eye-svg.active .eye-core       { opacity: 0.9; }
+.dlg-eye-svg.active .eye-spin       {
+  opacity: 0.5;
+  animation: dlg-eye-spin 4s linear infinite;
+}
+
+/* Pulse mode (angry/excited) */
+.dlg-eye-svg.active.pulse .eye-pupil {
+  animation: dlg-pupil-pulse 0.9s ease-in-out infinite;
+}
+.dlg-eye-svg.active.pulse .eye-ring-outer {
+  animation: dlg-ring-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dlg-eye-spin     { to { transform: rotate(360deg);  } }
+@keyframes dlg-eye-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes dlg-pupil-pulse  { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes dlg-ring-pulse   { 0%,100% { opacity:0.9; } 50% { opacity:0.25; } }
+
+/* ── Speaker name ───────────────────────────────────────────── */
+.dlg-speaker-name {
+  font-family:    var(--font-mono, 'Share Tech Mono', monospace);
+  font-size:      9px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color:          var(--dlg-accent, #ff6a00);
+  text-align:     center;
+  opacity: 0.85;
+}
+
+/* ── Text area ──────────────────────────────────────────────── */
+.dlg-text-wrap {
+  flex:     1;
+  display:  flex;
+  flex-direction: column;
+  justify-content: center;
+  padding:  0 28px 0 24px;
+  position: relative;
+  z-index:  2;
+  background: rgba(10, 10, 16, 0.97);
+  overflow: hidden;
+}
+
+/* Decorative corner brackets */
+.dlg-corner {
+  position: absolute;
+  width:  14px;
+  height: 14px;
+}
+.dlg-corner::before,
+.dlg-corner::after {
+  content:    '';
+  position:   absolute;
+  background: var(--dlg-accent, #ff6a00);
+  opacity:    0.5;
+}
+.dlg-corner::before { width: 2px; height: 100%; }
+.dlg-corner::after  { width: 100%; height: 2px; }
+.dlg-corner-tl { top: 10px;    left: 8px;  }
+.dlg-corner-tr { top: 10px;    right: 8px; transform: scaleX(-1); }
+.dlg-corner-bl { bottom: 10px; left: 8px;  transform: scaleY(-1); }
+.dlg-corner-br { bottom: 10px; right: 8px; transform: scale(-1); }
+
+/* Text inner container */
+.dlg-text-inner {
+  font-family:   var(--font-mono, 'Share Tech Mono', monospace);
+  font-size:     14px;
+  line-height:   1.75;
+  color:         var(--text-primary, #e2e2ee);
+  letter-spacing: 0.3px;
+  max-height:    110px;
+  overflow:      hidden;
+}
+
+/* Blinking block cursor (shown while typing) */
+.dlg-cursor {
+  display:     inline-block;
+  color:       var(--dlg-accent, #ff6a00);
+  font-size:   13px;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation:   dlg-blink 0.65s step-end infinite;
+}
+@keyframes dlg-blink { 50% { opacity: 0; } }
+
+/* ── "▼ SPACE" advance prompt ───────────────────────────────── */
+.dlg-prompt {
+  position:   absolute;
+  bottom:     10px;
+  right:      16px;
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size:  9px;
+  letter-spacing: 3px;
+  color:      var(--dlg-accent, #ff6a00);
+  opacity:    0;
+  transition: opacity 0.25s;
+  animation:  dlg-prompt-bounce 1s ease-in-out infinite;
+}
+.dlg-prompt.visible { opacity: 0.8; }
+@keyframes dlg-prompt-bounce {
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(3px); }
+}
+
+/* ── Theme overrides ────────────────────────────────────────── */
+body.theme-lab #dialogue-panel {
+  border-color: var(--portal-b, #e06000);
+  --dlg-accent: var(--portal-b, #e06000);
+  box-shadow: 0 -6px 40px rgba(0,0,0,0.3);
+}
+body.theme-lab .dlg-text-inner {
+  color: var(--text-primary, #1a1a2e);
+}
+body.theme-lab .dlg-text-wrap {
+  background: rgba(248, 248, 255, 0.97);
+}
+body.theme-lab .dlg-avatar {
+  background: linear-gradient(135deg, rgba(224,96,0,0.06) 0%, rgba(240,240,250,0.8) 100%);
+}
+
+body.theme-neon #dialogue-panel {
+  border-color: var(--portal-b, #00ff88);
+  --dlg-accent: var(--portal-b, #00ff88);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .dlg-avatar         { width: 80px; }
+  .dlg-eye-svg        { width: 58px; height: 58px; }
+  .dlg-text-inner     { font-size: 12px; }
+  #dialogue-panel.visible { bottom: 28px; }
+}

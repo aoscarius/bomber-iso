@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js AR - Pro Model Viewer</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        body, html { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #111; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #ui-overlay {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(0,0,0,0.85); padding: 20px; border-radius: 12px;
+            color: white; font-family: 'Segoe UI', sans-serif;
+            border: 1px solid #444; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .info { font-size: 0.8em; color: #aaa; margin-top: 8px; }
+        input[type="file"] { margin-top: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="ui-overlay">
+        <h3 style="margin:0">AR Pro Viewer</h3>
+        <input type="file" id="fileInput" accept=".glb">
+        <p class="info">
+            • <b>Thumbstick:</b> Rotate model locally in AR<br>
+            • <b>Blue Bar:</b> Drag to reposition the menu<br>
+            • <b>Auto-Center:</b> Models rotate around their center
+        </p>
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        
+        let scene, rootPivot, currentAnim;
+        let guiManager, guiPanel;
+        
+        const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+        const createScene = async function () {
+            scene = new BABYLON.Scene(engine);
+            
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 4, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.8;
+
+            // WebXR Experience
+            const xr = await scene.createDefaultXRExperienceAsync({
+                uiOptions: {
+                    sessionMode:        'immersive-ar',
+                    referenceSpaceType: 'local-floor',
+                    requiredFeatures:   ['hit-test'],
+                    optionalFeatures:   ['dom-overlay','plane-detection','anchors'],
+                    // document.body as root → ALL fixed overlays visible in XR dom-overlay
+                    domOverlayElement:  document.body,
+                },
+                disableTeleportation: true,
+                floorMeshes:          [],
+                // Prevent BabylonJS from creating skybox / ground in the XR scene
+                ignoreNativeCameraTransformation: false,
+            });
+
+            // Controller rotation logic
+            xr.input.onControllerAddedObservable.add(ctrl => {
+                ctrl.onMotionControllerInitObservable.add(mc => {
+                    const thumbstick = mc.getComponentOfType(BABYLON.WebXRControllerComponent.THUMBSTICK_TYPE)
+                    ?.onAxisValueChangedObservable.add(({x, y}) => {
+                        if (rootPivot) {
+                            // Rotate the pivot locally based on horizontal thumbstick movement
+                            rootPivot.rotation.y += x * 0.05;
+                        }
+                    });
+                });
+            });
+
+            // XR State Handling
+            xr.baseExperience.onStateChangedObservable.add((state) => {
+                if (state === BABYLON.WebXRState.IN_XR && rootPivot) {
+                    rootPivot.position.set(0, 0, 1.5); // Place model in front
+                }
+            });
+
+            return scene;
+        };
+
+        const update3DMenu = (animationGroups) => {
+            if (guiManager) guiManager.dispose();
+            
+            guiManager = new BABYLON.GUI.GUI3DManager(scene);
+            guiPanel = new BABYLON.GUI.StackPanel3D();
+            guiPanel.margin = 0.02;
+            
+            // Position the buttons slightly below the bar
+            guiManager.addControl(guiPanel);
+            guiPanel.position.z = 1.5;
+            guiPanel.position.y = 1.5;
+
+            // --- Buttons ---
+            let isAutoRotating = false;
+            createHolographicBtn("🗘 Auto-Spin", () => {
+                isAutoRotating = !isAutoRotating;
+            });
+            
+            scene.onBeforeRenderObservable.add(() => {
+                if (isAutoRotating && rootPivot) {
+                    rootPivot.rotation.y += 0.01;
+                }
+            });
+
+            createHolographicBtn("⏯ Play/Pause", () => {
+                if (currentAnim) {
+                    currentAnim.isPlaying ? currentAnim.pause() : currentAnim.play(true);
+                }
+            });
+
+            animationGroups.forEach((anim) => {
+                createHolographicBtn(anim.name, () => {
+                    animationGroups.forEach(a => a.stop());
+                    currentAnim = anim;
+                    currentAnim.play(true);
+                });
+            });   
+        };
+
+        const createHolographicBtn = (text, callback) => {
+            const button = new BABYLON.GUI.Button3D(text);
+            guiPanel.addControl(button);
+            button.onPointerUpObservable.add(callback);
+            // button.scaling = new BABYLON.Vector3(.5, .5, 1);
+            const label = new BABYLON.GUI.TextBlock();
+            label.text = text; label.color = "white"; label.fontSize = 24;
+            button.content = label;
+            return button;
+        };
+
+        const handleFile = async (file) => {
+            if (file.size > MAX_FILE_SIZE) {
+                alert("File too large! Max 50MB.");
+                return;
+            }
+
+            if (rootPivot) rootPivot.dispose();
+
+            try {
+                const result = await BABYLON.SceneLoader.ImportMeshAsync("", "file:", file, scene);
+                
+                // --- FIX: CENTERING WITHOUT DISASSEMBLING ---
+                const originalRoot = result.meshes[0];
+                const hierarchy = originalRoot.getHierarchyBoundingVectors();
+                const size = hierarchy.max.subtract(hierarchy.min);
+                const center = hierarchy.max.add(hierarchy.min).scale(0.5);
+
+                // Create a clean pivot node to act as the new center
+                rootPivot = new BABYLON.TransformNode("rootPivot", scene);
+                originalRoot.setParent(rootPivot);
+                
+                // Offset the original model so its visual center matches the pivot's (0,0,0)
+                originalRoot.position.subtractInPlace(center);
+
+                // Auto-Scale
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scaleFactor = 1.5 / maxDim;
+                rootPivot.scaling.setAll(scaleFactor);
+
+                rootPivot.position = BABYLON.Vector3.Zero();
+                scene.activeCamera.setTarget(BABYLON.Vector3.Zero());
+
+                update3DMenu(result.animationGroups);
+                document.getElementById("ui-overlay").style.opacity = "0.4";
+                
+            } catch (e) {
+                console.error(e);
+                alert("Error loading GLB.");
+            }
+        };
+
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        createScene().then(() => {
+            engine.runRenderLoop(() => scene.render());
+        });
+
+        window.addEventListener("resize", () => engine.resize());
+    </script>
+</body>
+</html>

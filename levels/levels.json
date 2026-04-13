@@ -1,0 +1,11 @@
+{
+  "description": "Bomber ISO — Levels Manifest",
+  "comment": "Each file pushes into LEVELS[]. Play order matches file order.",
+  "files": [
+    "levels/level_1.js",
+    "levels/level_2.js",
+    "levels/level_3.js",
+    "levels/level_4.js",
+    "levels/level_5.js"
+  ]
+}

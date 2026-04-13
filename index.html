@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BOMBER ISO - Isometric Edition</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- BabylonJS (includes WebXR helpers) -->
+  <!-- loaders must come AFTER babylon.js -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="src/ui/styles.css?v=3e07c2a4" />
+  <link rel="stylesheet" href="src/ui/dialogue.css?v=755336f5" />
+  <link rel="stylesheet" href="src/ui/ar.css?v=92cab65b" />
+  <style>
+    /* ── Camera buttons ────────────────────────────────── */
+    #btn-menu-from-game, #btn-editor-from-game, #btn-fullscreen, #btn-orbit, #btn-enter-ar {
+      display: none;
+      position: fixed; z-index: 600;
+      width: 38px; height: 38px; top: 6px;
+      background: rgba(8,8,11,.9);
+      border: 1px solid #383848;
+      color: #9090a8; font-size: 16px; line-height: 1;
+      cursor: pointer; border-radius: 3px;
+      transition: color .15s, border-color .15s;
+      touch-action: manipulation;
+    }
+    #btn-menu-from-game  { top: 54px; right: 8px; }
+    #btn-editor-from-game  { top: 54px; right: 8px; }
+    #btn-fullscreen { top: 54px; right: 54px; }
+    #btn-orbit      { top: 54px; right: 100px; }
+    #btn-enter-ar   { top: 54px; right: 146px; }
+    #btn-menu-from-game:hover,
+    #btn-editor-from-game:hover,
+    #btn-fullscreen:hover,
+    #btn-orbit:hover,
+    #btn-enter-ar:hover { color: #e2e2ee; border-color: #ff6a00; }
+    #btn-orbit.active   { color: #ff6a00; border-color: #ff6a00; }
+
+    /* ── Touch D-pad ────────────────────────────────────── */
+    /* Hidden by default; shown only in-game on touch devices via uiManager */
+    #touch-dpad-arrows,
+    #touch-dpad-portals { display: none; pointer-events: auto; }
+
+    /* Safe-area bottom: clears home-indicator on notch phones */
+    #touch-dpad-arrows {
+      position: fixed; bottom: 106px; left: 12px; z-index: 500;
+      flex-direction: column; align-items: center; gap: 4px;
+    }
+    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-arrows {
+      bottom: 142px;
+    }
+    .dpad-row  { display: flex; gap: 4px; align-items: center; }
+    .dpad-gap  { width: 48px; }
+
+    #touch-dpad-arrows button {
+      width: 52px; height: 52px;
+      background: rgba(0,0,0,.75);
+      border: 1px solid rgba(255,106,0,.55);
+      color: #ff6a00; font-size: 20px;
+      cursor: pointer; border-radius: 6px;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none; opacity: .8;
+    }
+    #touch-dpad-arrows button:active { background: rgba(255,106,0,.18); opacity: .7; }
+
+    #touch-dpad-portals {
+      position: fixed; bottom: 106px; right: 12px; z-index: 500;
+      flex-direction: column; gap: 10px;
+    }
+    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-portals {
+      bottom: 142px;
+    }
+    #touch-dpad-portals button {
+      width: 64px; height: 64px;
+      font-size: 14px; letter-spacing: 2px; font-weight: 700;
+      font-family: var(--font-mono);
+      cursor: pointer; border-radius: 8px;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;  opacity: .8;
+    }
+    #touch-dpad-portals button:active { opacity: .7; }
+    #dpad-portal-a {
+      border: 2px solid #0099ff; color: #0099ff;
+      background: rgba(0,153,255,.15);
+    }
+    #dpad-portal-b {
+      border: 2px solid #ff6a00; color: #ff6a00;
+      background: rgba(255,106,0,.15);
+    }
+
+    /* ── Mobile responsive ──────────────────────────────── */
+    /* Portrait mobile ≤ 480px */
+    @media (max-width: 480px) {
+      .menu-content {
+        padding: 28px 18px 22px !important;
+        min-width: 0 !important;
+        width: 96vw !important;
+        box-sizing: border-box;
+      }
+      .game-title      { font-size: 26px !important; letter-spacing: 3px !important; }
+      .subtitle        { font-size: 8px !important; }
+      .menu-btn        { padding: 11px 14px !important; font-size: 10px !important; letter-spacing: 2px !important; }
+      .panel           { min-width: 0 !important; width: 96vw !important; padding: 16px 14px !important; box-sizing: border-box; }
+      .result-content  { min-width: 0 !important; width: 96vw !important; padding: 24px 16px !important; box-sizing: border-box; }
+      .result-title    { font-size: 22px !important; letter-spacing: 4px !important; }
+      .hud-top         { font-size: 8px !important; padding: 0 8px !important; height: 34px !important; }
+      .controls-legend { display: none !important; }
+      .portal-indicators { bottom: 148px !important; }
+      /* Dialogue above touch controls */
+      #dialogue-panel.visible { bottom: 5px !important; }
+    }
+
+    /* Landscape mobile — short screens */
+    @media (max-height: 500px) {
+      .menu-content    { padding: 16px 18px !important; gap: 8px !important; }
+      .game-title      { font-size: 22px !important; }
+      .menu-btn        { padding: 8px 14px !important; }
+      .hud-top         { height: 28px !important; font-size: 8px !important; }
+      .controls-legend { display: none !important; }
+      #dialogue-panel.visible { bottom: 160px !important; }
+    }
+  
+    /* ── Splash screen ──────────────────────────────────── */
+    #splash-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #05050a;
+      display: none; align-items: center; justify-content: center;
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+    }
+    #splash-screen.hidden { display: none; }
+
+    @keyframes splash-fade-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    .splash-fadeout {
+      animation: splash-fade-out 0.6s ease forwards;
+    }
+
+    .splash-inner {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      width: min(480px, 92vw); text-align: center;
+    }
+
+    .splash-logo { position: relative; }
+    @keyframes splash-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .splash-aperture {
+      animation: splash-spin 8s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(255,106,0,0.45));
+    }
+
+    .splash-title {
+      font-family: var(--font-display, 'Rajdhani', sans-serif);
+      font-size: 42px; font-weight: 700;
+      letter-spacing: 6px; color: #e2e2ee;
+      margin: 0; line-height: 1;
+    }
+    .splash-iso {
+      color: #ff6a00; font-size: 28px; letter-spacing: 2px;
+      vertical-align: super; margin-left: 4px;
+    }
+
+    .splash-sub {
+      font-size: 9px; letter-spacing: 3px;
+      color: #5a5a72; margin: 0;
+    }
+
+    .splash-bar-wrap { width: 100%; margin-top: 8px; }
+    .splash-bar-track {
+      width: 100%; height: 3px;
+      background: #1a1a2a; border-radius: 2px;
+      overflow: hidden; margin-bottom: 8px;
+    }
+    .splash-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #ff6a00, #ffb347);
+      border-radius: 2px;
+      transition: width 0.25s ease;
+      box-shadow: 0 0 8px rgba(255,106,0,0.6);
+    }
+    .splash-bar-labels {
+      display: flex; justify-content: space-between;
+      font-size: 9px; letter-spacing: 1px; color: #4a4a60;
+    }
+    #splash-label { color: #8080a0; }
+    #splash-pct   { color: #ff6a00; }
+
+    .splash-notice {
+      font-size: 7px; letter-spacing: 2px;
+      color: #2a2a38; margin: 0; margin-top: 4px;
+    }
+
+    /* ── Company intro splash ───────────────────────────── */
+    #intro-splash {
+      position: fixed; inset: 0; z-index: 10000;
+      background: #05050a;
+      display: none;               /* shown via JS */
+      align-items: center; justify-content: center;
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+      overflow: hidden;
+    }
+
+    /* Animated background grid — subtle dot matrix */
+    #intro-splash::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(circle, rgba(255,106,0,0.07) 1px, transparent 1px);
+      background-size: 32px 32px;
+      animation: intro-grid-drift 8s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes intro-grid-drift {
+      from { background-position: 0 0; }
+      to   { background-position: 32px 32px; }
+    }
+
+    .intro-inner {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 20px; width: min(520px, 90vw); text-align: center;
+    }
+
+    /* ── Logo mark — animated SVG ── */
+    .intro-logo-wrap {
+      position: relative;
+      width: 120px; height: 120px;
+    }
+
+    @keyframes intro-orbit {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes intro-orbit-rev {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(-360deg); }
+    }
+    .intro-ring-outer { animation: intro-orbit     14s linear infinite; transform-origin: 60px 60px; }
+    .intro-ring-inner { animation: intro-orbit-rev 9s  linear infinite; transform-origin: 60px 60px; }
+
+    @keyframes intro-pulse {
+      0%,100% { opacity: 0.7; filter: drop-shadow(0 0 6px rgba(255,106,0,0.5)); }
+      50%      { opacity: 1.0; filter: drop-shadow(0 0 18px rgba(255,106,0,0.9)); }
+    }
+    .intro-logo-svg {
+      animation: intro-pulse 2.4s ease-in-out infinite;
+    }
+
+    /* ── Wordmark ── */
+    .intro-company {
+      font-family: var(--font-display, 'Rajdhani', sans-serif);
+      font-size: 52px; font-weight: 700;
+      letter-spacing: 4px; color: #e8e8f0;
+      line-height: 1; margin: 0;
+    }
+    .intro-company-accent {
+      color: #ff6a00;
+    }
+    .intro-tagline {
+      font-family: var(--font-mono, 'Share Tech Mono', monospace);
+      font-size: 10px; letter-spacing: 4px;
+      color: #4a4a62; margin: 0;
+      text-transform: uppercase;
+    }
+    .intro-tagline em {
+      color: #6a6a88; font-style: normal;
+    }
+
+    /* ── Separator ── */
+    .intro-sep {
+      width: 120px; height: 1px;
+      background: linear-gradient(90deg, transparent, #ff6a00, transparent);
+      opacity: 0.5;
+    }
+
+    /* ── Skip hint ── */
+    .intro-skip {
+      position: absolute; bottom: 28px; right: 32px;
+      font-size: 9px; letter-spacing: 2px; color: #2a2a3a;
+      cursor: pointer; user-select: none;
+      transition: color 0.2s;
+    }
+    .intro-skip:hover { color: #ff6a00; }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-panel); }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+    * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-panel); }
+
+    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-arrows,
+    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-portals {
+      bottom: 142px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ COMPANY INTRO SPLASH ══════════════════════════════ -->
+  <div id="intro-splash">
+
+    <div class="intro-inner">
+
+      <!-- Animated logo mark -->
+      <div class="intro-logo-wrap">
+        <svg class="intro-logo-svg" viewBox="0 0 120 120" width="120" height="120"
+             xmlns="http://www.w3.org/2000/svg" aria-label="42 Labs">
+
+          <!-- Outer dashed orbit ring -->
+          <g class="intro-ring-outer">
+            <circle cx="60" cy="60" r="54"
+              fill="none" stroke="#ff6a00" stroke-width="1"
+              stroke-dasharray="6 10" opacity="0.4"/>
+            <!-- Orbital node -->
+            <circle cx="60" cy="6" r="3.5" fill="#ff6a00" opacity="0.9"/>
+          </g>
+
+          <!-- Inner orbit ring -->
+          <g class="intro-ring-inner">
+            <circle cx="60" cy="60" r="38"
+              fill="none" stroke="#ff6a00" stroke-width="0.8"
+              stroke-dasharray="3 8" opacity="0.25"/>
+            <!-- Orbital node opposite -->
+            <circle cx="60" cy="22" r="2.5" fill="#ff9944" opacity="0.7"/>
+          </g>
+
+          <!-- Core hexagon -->
+          <polygon
+            points="60,28 82,41 82,67 60,80 38,67 38,41"
+            fill="none" stroke="#ff6a00" stroke-width="1.8" opacity="0.6"/>
+
+          <!-- Inner hex glow fill -->
+          <polygon
+            points="60,34 78,44.5 78,65.5 60,76 42,65.5 42,44.5"
+            fill="rgba(255,106,0,0.04)"/>
+
+          <!-- The "42" numeral — main mark -->
+          <!-- "4" -->
+          <path d="M36 70 L36 52 L46 52 L46 60 L36 60" fill="none"
+                stroke="#ff6a00" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="33" y1="60" x2="49" y2="60"
+                stroke="#ff6a00" stroke-width="2.8" stroke-linecap="round"/>
+
+          <!-- "2" -->
+          <path d="M54 55 Q54 48 63 48 Q72 48 72 55 Q72 62 54 70 L72 70"
+                fill="none" stroke="#ff6a00" stroke-width="2.8"
+                stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Center dot -->
+          <circle cx="60" cy="60" r="2.5" fill="#ff6a00" opacity="0.5"/>
+
+          <!-- Corner tick marks -->
+          <line x1="8"  y1="8"  x2="16" y2="8"  stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="8"  y1="8"  x2="8"  y2="16" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="112" y1="8"  x2="104" y2="8"  stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="112" y1="8"  x2="112" y2="16" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="8"  y1="112" x2="16"  y2="112" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="8"  y1="112" x2="8"   y2="104" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="112" y1="112" x2="104" y2="112" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+          <line x1="112" y1="112" x2="112" y2="104" stroke="#ff6a00" stroke-width="1.5" opacity="0.4"/>
+        </svg>
+      </div>
+
+      <!-- Wordmark -->
+      <h1 class="intro-company">A<span class="intro-company-accent">OSCAR</span>IUS</h1>
+      <div class="intro-sep"></div>
+      <p class="intro-tagline">PRESENTS</p>
+
+    </div>
+
+    <!-- Skip hint -->
+    <span class="intro-skip" id="intro-skip-btn">SKIP ▶</span>
+  </div>
+
+  <!-- ══ SPLASH SCREEN ══════════════════════════════════════ -->
+  <div id="splash-screen">
+    <div class="splash-inner">
+
+      <!-- Animated bomb logo -->
+      <div class="splash-logo">
+        <svg viewBox="0 0 100 100" width="96" height="96" class="splash-aperture">
+          <!-- Bomb body -->
+          <circle cx="50" cy="58" r="32" fill="#1a1a22" stroke="#ff6a00" stroke-width="2.5"/>
+          <!-- Highlight -->
+          <ellipse cx="40" cy="45" rx="9" ry="6" fill="none" stroke="#ff9944" stroke-width="1.5" opacity=".5"/>
+          <!-- Fuse base -->
+          <line x1="50" y1="26" x2="55" y2="16" stroke="#ff6a00" stroke-width="3" stroke-linecap="round"/>
+          <!-- Fuse curl -->
+          <path d="M55,16 Q65,8 60,2" fill="none" stroke="#ff6a00" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Fuse spark -->
+          <circle cx="60" cy="2" r="4" fill="#ffdd00" opacity=".9">
+            <animate attributeName="opacity" values="0.9;0.2;0.9" dur="0.6s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="4;6;4" dur="0.6s" repeatCount="indefinite"/>
+          </circle>
+          <!-- Cross stripes on bomb -->
+          <line x1="30" y1="58" x2="70" y2="58" stroke="#ff6a00" stroke-width="1.5" opacity=".3"/>
+          <line x1="50" y1="38" x2="50" y2="78" stroke="#ff6a00" stroke-width="1.5" opacity=".3"/>
+        </svg>
+      </div>
+
+      <h1 class="splash-title">BOMBER<span class="splash-iso">ISO</span></h1>
+      <p  class="splash-sub">ISOMETRIC BOMB ACTION</p>
+
+      <!-- Progress bar -->
+      <div class="splash-bar-wrap">
+        <div class="splash-bar-track">
+          <div class="splash-bar-fill" id="splash-bar-fill"></div>
+        </div>
+        <div class="splash-bar-labels">
+          <span id="splash-label">INITIALIZING…</span>
+          <span id="splash-pct">0%</span>
+        </div>
+      </div>
+
+      <p class="splash-notice">BOMBER ISO — DESTROY · EXPLORE · ESCAPE</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN MENU
+  ════════════════════════════════════════════════════════ -->
+  <div id="main-menu" class="overlay hidden">
+    <div class="menu-bg-grid"></div>
+    <div class="menu-content">
+      <div class="aperture-logo">
+        <svg viewBox="0 0 100 100" width="80" height="80" aria-label="Bomber ISO">
+          <!-- Bomb body -->
+          <circle cx="50" cy="60" r="30" fill="#1a1a22" stroke="#ff6a00" stroke-width="3"/>
+          <ellipse cx="41" cy="48" rx="8" ry="5" fill="none" stroke="#ff9944" stroke-width="2" opacity=".5"/>
+          <!-- Fuse -->
+          <line x1="50" y1="30" x2="56" y2="18" stroke="#ff6a00" stroke-width="3" stroke-linecap="round"/>
+          <path d="M56,18 Q66,10 62,4" fill="none" stroke="#ff6a00" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="62" cy="4" r="4" fill="#ffdd00"/>
+          <!-- Stripes -->
+          <line x1="28" y1="60" x2="72" y2="60" stroke="#ff6a00" stroke-width="2" opacity=".3"/>
+          <line x1="50" y1="38" x2="50" y2="82" stroke="#ff6a00" stroke-width="2" opacity=".3"/>
+        </svg>
+      </div>
+      <h1 class="game-title">BOMBER<span class="title-iso">ISO</span></h1>
+      <p class="subtitle">ISOMETRIC BOMB ACTION<br><span style="font-size:8px;letter-spacing:2px;color:#ff6a00;opacity:.7">DESTROY · EXPLORE · ESCAPE</span></p>
+      <div class="menu-divider"></div>
+      <nav class="menu-nav">
+        <button class="menu-btn primary" id="btn-play"       data-i18n="menu_play">▶ INITIALIZE TESTS</button>
+        <!-- AR button shown only when WebXR is available -->
+        <button class="menu-btn"         id="ar-entry-btn" >◈ PLAY IN AR</button>
+        <button class="menu-btn"         id="btn-infinite">⚄ RANDOM STAGE</button>
+        <button class="menu-btn"         id="btn-editor">⬡ LEVEL EDITOR</button>
+        <button class="menu-btn"         id="btn-settings">⚙ SETTINGS</button>
+      </nav>
+      <div id="ar-not-supported" style="display:none;font-size:9px;letter-spacing:1px;color:#5a5a72;text-align:center;padding:4px 0;">
+        AR requires HTTPS + Chrome on Android or Safari on iOS 15+
+      </div>
+      <div class="system-info">
+        <span>SYS: BOMBER ISO v1.0</span>
+        <span>STATUS: <span class="blink">OPERATIONAL</span></span>
+        <span data-i18n="menu_chambers">LOADED STAGES:</span><span id="chambers-cnt">10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       AR ENTRY OVERLAY
+  ════════════════════════════════════════════════════════ -->
+  <div id="ar-overlay" class="hidden" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(8,8,11,0.97);align-items:center;justify-content:center;">
+    <div class="ar-panel">
+      <div class="ar-icon">◈</div>
+      <h2 class="ar-title">AR MODE</h2>
+      <p class="ar-subtitle">MIXED REALITY · WEBXR</p>
+
+      <p class="ar-desc">
+        Place the test chamber on any flat surface in your environment.
+        Use pinch to scale and drag to rotate the level.
+      </p>
+
+      <div class="ar-requirements">
+        <div class="ar-req-row">
+          <span>WEBXR IMMERSIVE-AR</span>
+          <span id="ar-req-webxr" class="ar-req-check">CHECKING…</span>
+        </div>
+        <div class="ar-req-row">
+          <span>HIT-TEST SURFACE DETECTION</span>
+          <span id="ar-req-hittest" class="ar-req-check">CHECKING…</span>
+        </div>
+        <div class="ar-req-row">
+          <span>HTTPS / SECURE CONTEXT</span>
+          <span class="ar-req-ok">✓</span>
+        </div>
+      </div>
+
+      <div id="ar-error" class="ar-error"></div>
+
+      <div class="ar-btn-group">
+        <button class="menu-btn primary" id="ar-start-btn">▶ ENTER AR</button>
+        <button class="menu-btn"         id="ar-back-btn" >◂ BACK TO MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LEVEL SELECT
+  ════════════════════════════════════════════════════════ -->
+  <div id="level-select-overlay" class="overlay hidden">
+    <div class="panel level-select-panel">
+      <div class="panel-header">
+        <span data-i18n="ls_title">SELECT STAGE</span>
+        <button class="panel-close" id="btn-close-level-select">✕</button>
+      </div>
+      <button class="menu-btn primary full-w" id="btn-play-first" data-i18n="ls_start_first">▶ START FROM STAGE 01</button>
+      <div class="menu-divider"></div>
+      <div id="level-select-grid" class="level-select-grid"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SETTINGS
+  ════════════════════════════════════════════════════════ -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="panel settings-panel">
+      <div class="panel-header">
+        <span>⚙ BOMBER SETTINGS</span>
+        <button class="panel-close" id="btn-close-settings">✕</button>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">AUDIO EFFECTS</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-audio" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">AMICA VOICE (TTS)</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-tts" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">DIALOGUE PANEL</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-dialogue" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">MINIMAP</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-minimap" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">SHADOWS</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-shadows" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label">ORBIT CAMERA</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-orbit"/><span class="toggle-slider"></span></label>
+      </div>
+      <!-- Control scheme -->
+      <div class="settings-row settings-row-stacked">
+        <label class="settings-label">CONTROL SCHEME</label>
+        <div class="picker-row" id="scheme-picker-row">
+          <button class="theme-btn active" id="scheme-classic" data-scheme="classic">CLASSIC WASD</button>
+          <button class="theme-btn"        id="scheme-tank"    data-scheme="tank">TANK (FWD/TURN)</button>
+        </div>
+      </div>
+
+      <!-- Language picker -->
+      <div class="settings-row settings-row-stacked">
+        <label class="settings-label" data-i18n="settings_lang">LANGUAGE</label>
+        <div class="picker-row" id="lang-picker-row"></div>
+      </div>
+
+      <!-- Visual theme picker -->
+      <div class="settings-row settings-row-stacked">
+        <label class="settings-label" data-i18n="settings_theme">VISUAL THEME</label>
+        <div class="picker-row" id="theme-picker-row"></div>
+      </div>
+
+      <div class="menu-divider"></div>
+      <div class="controls-ref">
+        <div class="ctrl-title">CONTROLS</div>
+        <div class="ctrl-row"><span>MOVE</span><span>WASD / ARROWS</span></div>
+        <div class="ctrl-row"><span>PLACE BOMB</span><span>SPACE / X</span></div>
+        <div class="ctrl-row"><span>TOGGLE MINIMAP</span><span>M</span></div>
+        <div class="ctrl-row"><span>RESTART CHAMBER</span><span>F1</span></div>
+        <div class="ctrl-row"><span>MENU</span><span>ESC</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       GAMEPLAY HUD
+  ════════════════════════════════════════════════════════ -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-top">
+      <div class="hud-cell">STAGE: <span id="level-num">01</span></div>
+      <div class="hud-cell center" id="hud-title">CHAMBER LOADING…</div>
+      <div class="hud-cell right">STEPS: <span id="step-count">0</span></div>
+    </div>
+    <div class="portal-indicators" id="bomb-stats" style="display:flex;gap:16px;font-size:10px;letter-spacing:2px;">
+      <div class="portal-dot" id="hud-bombs" style="color:#ff6a00;">💣 1</div>
+      <div class="portal-dot" id="hud-range" style="color:#ff4400;">🔥 2</div>
+      <div class="portal-dot" id="hud-enemies" style="color:#d04040;">👾 0</div>
+    </div>
+    <div class="hud-hint" id="hud-hint"></div>
+    <div class="controls-legend">
+      <span>WASD · MOVE</span>
+      <span>SPACE · BOMB</span>
+      <span>X · BOMB (ALT)</span>
+      <span>M · MAP</span>
+      <span>ESC · MENU</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       WIN / FAIL
+  ════════════════════════════════════════════════════════ -->
+  <div id="win-overlay" class="overlay hidden">
+    <div class="result-content win-content">
+      <div class="result-icon win-icon">✓</div>
+      <h2 class="result-title win-title" data-i18n="win_title">STAGE CLEAR</h2>
+      <p class="result-subtitle" data-i18n="win_subtitle">All enemies eliminated.</p>
+      <div class="win-stats">
+        <div class="stat-block"><div class="stat-val" id="win-steps">0</div><div class="stat-lbl">STEPS</div></div>
+        <div class="stat-divider"></div>
+        <div class="stat-block"><div class="stat-val" id="win-portals">0</div><div class="stat-lbl">BOMBS PLACED</div></div>
+      </div>
+      <div class="result-actions">
+        <button class="menu-btn primary" id="btn-next-level" data-i18n="win_next">NEXT STAGE ▶</button>
+        <button class="menu-btn"         id="btn-back-editor-win" style="display:none;">⬡ BACK TO EDITOR</button>
+        <button class="menu-btn"         id="btn-menu-from-win" data-i18n="win_menu">◂ MAIN MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fail-overlay" class="overlay hidden">
+    <div class="result-content fail-content">
+      <div class="result-icon fail-icon">✗</div>
+      <h2 class="result-title fail-title" data-i18n="fail_title">GAME OVER</h2>
+      <p class="result-subtitle" id="fail-message">Unexpected result.</p>
+      <div class="result-actions">
+        <button class="menu-btn primary" id="btn-retry">↺ RETRY</button>
+        <button class="menu-btn"         id="btn-back-editor-fail" style="display:none;">⬡ BACK TO EDITOR</button>
+        <button class="menu-btn"         id="btn-menu-from-fail" data-i18n="fail_menu">◂ MAIN MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LEVEL EDITOR
+  ════════════════════════════════════════════════════════ -->
+  <div id="editor-overlay" class="overlay hidden">
+    <div class="editor-layout">
+      <div id="cnt-sidebar" class="editor-sidebar">
+        <div class="editor-logo">⬡ EDITOR</div>
+        <div class="editor-section-title">TOOLS</div>
+        <div class="editor-tools">
+          <button class="tool-btn active" id="tool-paint">✎ PAINT</button>
+          <button class="tool-btn"        id="tool-erase">◻ ERASE</button>
+          <button class="tool-btn"        id="tool-fill" >▣ FILL</button>
+        </div>
+        <div class="editor-section-title">TILES</div>
+        <div class="tile-palette" id="tile-palette"></div>
+        <div class="editor-section-title">GRID SIZE</div>
+        <label class="editor-label">W <input type="number" id="grid-w" value="10" min="4" max="24"/></label>
+        <label class="editor-label">H <input type="number" id="grid-h" value="10" min="4" max="24"/></label>
+        <button class="tool-btn full" id="btn-resize-grid">⊞ RESIZE</button>
+        <div class="editor-section-title">RANDOM LEVEL</div>
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          <label class="editor-label">DIFFICULTY
+            <select id="gen-difficulty" class="editor-level">
+              <option value="1">1: Easy</option><option value="2" selected>2: Normal</option>
+              <option value="3">3: Hard</option><option value="4">4: Expert</option>
+              <option value="5">5: Insane</option>
+            </select>
+          </label>
+        </div>
+        <button class="tool-btn full" id="btn-generate-level">⚄ GENERATE</button>
+        <div class="editor-section-title">LEVEL NAME</div>
+        <input class="editor-level" id="editor-level-name" type="text" placeholder="CUSTOM CHAMBER"/>
+        <div class="editor-section-title">AMICA TEXT</div>
+        <textarea class="editor-amica" id="editor-amica-text" placeholder="Optional AMICA intro text..."></textarea>
+        <div class="editor-section-title">FILE</div>
+        <button class="tool-btn full"        id="btn-test-level"  >▶ TEST</button>
+        <button class="tool-btn full"        id="btn-export-level">↓ EXPORT LEVEL</button>
+        <button class="tool-btn full"        id="btn-import-level">↑ IMPORT LEVEL</button>
+        <input  type="file" id="import-file-input" accept=".js" style="display:none"/>
+        <button class="tool-btn full"        id="btn-copy-level" >⎘ COPY CLIPBOARD</button>
+        <button class="tool-btn full"        id="btn-clear-level" >⌫ CLEAR</button>
+        <button class="tool-btn full danger" id="btn-close-editor">✕ MENU</button>
+      </div>
+      <div class="editor-canvas-wrap">
+        <div class="editor-header">
+          <button class="btn-toggle" id="btn-toggle">☰</button>
+          <span class="editor-header-space"></span>
+          <button class="btn-exit" id="btn-exit">✕</button>
+        </div>
+        <div class="editor-canvas-scroll" id="editor-canvas-scroll">
+          <canvas id="editor-canvas"></canvas>
+        </div>
+        <div class="editor-statusbar">
+          <span id="editor-status">Ready — select a tile and paint on the grid</span>
+          <span id="editor-cursor-pos"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       WebXR DOM OVERLAY
+       ─────────────────────────────────────────────────────
+       This element is the container passed to the WebXR
+       dom-overlay feature. Everything inside it remains
+       visible as a 2D overlay on top of the AR camera feed.
+       MUST be a direct child of <body>.
+  ════════════════════════════════════════════════════════ -->
+  <div id="ar-dom-overlay" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:500;">
+
+    <!-- AR HUD — shown only while inside an AR session -->
+    <div id="ar-hud" class="hidden" style="display:none;">
+
+      <!-- Top bar: badge + status message -->
+      <div class="ar-hud-top">
+        <div class="ar-badge">
+          <div class="ar-badge-dot"></div>
+          AR LIVE
+        </div>
+        <span id="ar-status">Searching for surface…</span>
+      </div>
+
+      <!-- Scanning animation (visible before placement) -->
+      <div id="ar-scan-hint" class="ar-scan-hint">
+        <div class="ar-scan-ring"></div>
+        <div class="ar-scan-ring"></div>
+        <div class="ar-scan-ring"></div>
+      </div>
+
+      <!-- Bottom control bar -->
+      <div class="ar-hud-bottom">
+
+        <!-- Transform controls (scale + rotate) -->
+        <div class="ar-transform-row">
+          <button class="ar-icon-btn" id="ar-btn-scale-down" title="Scale down">−</button>
+          <button class="ar-icon-btn" id="ar-btn-rot-left"   title="Rotate left">↺</button>
+          <button class="ar-icon-btn" id="ar-btn-rot-right"  title="Rotate right">↻</button>
+          <button class="ar-icon-btn" id="ar-btn-scale-up"   title="Scale up">+</button>
+        </div>
+
+        <!-- Primary actions -->
+        <div class="ar-action-row">
+          <!-- Place button (shown before placement) -->
+          <button class="ar-action-btn primary" id="ar-btn-place">
+            ◉ PLACE HERE
+          </button>
+          <!-- Reset button (shown after placement) -->
+          <button class="ar-action-btn" id="ar-btn-reset" style="display:none">
+            ↺ REPOSITION
+          </button>
+          <!-- Exit AR -->
+          <button class="ar-action-btn danger" id="ar-btn-exit">
+            ✕ EXIT AR
+          </button>
+        </div>
+      </div>
+
+    </div><!-- #ar-hud -->
+
+    <!-- Touch D-pad: moved to <body> by uiManager on touch devices, stays here for AR -->
+    <!-- Touch controls: arrow pad (bottom-left) + portal buttons (bottom-right) -->
+    <!-- AR win toast — shown instead of win-overlay when in AR -->
+    <div id="ar-win-toast" style="
+      display:none; position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%); z-index:910;
+      flex-direction:column; gap:14px; align-items:center;
+      background:rgba(8,8,11,.96); border:1px solid #00ff88;
+      border-top:3px solid #00ff88; padding:28px 36px; min-width:220px;
+      font-family:var(--font-mono); pointer-events:auto; text-align:center;">
+      <div style="font-size:13px;letter-spacing:3px;color:#00ff88;">✓ TEST COMPLETE</div>
+      <div id="ar-win-stats" style="font-size:9px;letter-spacing:1.5px;color:#5a5a72;"></div>
+      <button id="ar-win-next" style="width:100%;padding:11px;background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">NEXT CHAMBER ▶</button>
+      <button id="ar-win-retry" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">↺ RETRY</button>
+      <button id="ar-win-menu" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">✕ EXIT AR</button>
+    </div>
+
+    <!-- AR pause menu -->
+    <div id="ar-menu-panel" style="
+      display:none;position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);z-index:900;
+      flex-direction:column;gap:12px;align-items:center;
+      background:rgba(8,8,11,.95);border:1px solid #ff6a00;
+      border-top:3px solid #ff6a00;padding:28px 36px;min-width:220px;
+      font-family:var(--font-mono);pointer-events:auto;">
+      <div style="font-size:11px;letter-spacing:3px;color:#ff6a00;">AR PAUSED</div>
+      <button id="ar-menu-resume" style="width:100%;padding:10px;background:transparent;border:1px solid #ff6a00;color:#ff6a00;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">▶ RESUME</button>
+      <button id="ar-menu-retry"  style="width:100%;padding:10px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">↺ RETRY CHAMBER</button>
+      <button id="ar-menu-reset"  style="width:100%;padding:10px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">⊕ REPOSITION BOARD</button>
+      <button id="ar-menu-exit"   style="width:100%;padding:10px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">✕ EXIT AR</button>
+  </div>
+
+  </div><!-- #ar-dom-overlay -->
+
+  <!-- ── Camera / AR buttons (body-level: always visible during gameplay) ── -->
+  <button id="btn-menu-from-game"   title="Exit">✕</button>
+  <button id="btn-editor-from-game" title="Exit">✕</button>
+  <button id="btn-fullscreen"     title="Fullscreen">⛶</button>
+  <button id="btn-orbit"          title="Orbit / iso camera">⊙</button>
+  <button id="btn-enter-ar"       title="Enter AR mode">◈</button>
+
+  <!-- ── Touch D-pad: arrows bottom-left, portals bottom-right ──────── -->
+  <div id="touch-dpad-arrows">
+    <div class="dpad-row"><button id="dpad-up">▲</button></div>
+    <div class="dpad-row">
+      <button id="dpad-left">◀</button>
+      <span class="dpad-gap"></span>
+      <button id="dpad-right">▶</button>
+    </div>
+    <div class="dpad-row"><button id="dpad-down">▼</button></div>
+  </div>
+  <div id="touch-dpad-portals">
+    <button id="dpad-bomb" style="font-size:20px;">💣</button>
+  </div>
+  <div id="touch-dpad" style="display:none;"></div>
+
+  <!-- BabylonJS render target (lowest z-index) -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPTS  (load order = dependency order)
+  ════════════════════════════════════════════════════════ -->
+
+  <!-- Load order is strict: utils → data → core → game → ui → entry -->
+  <script src="src/utils/i18n.js?v=un3u0fjt"></script>
+  <script src="src/utils/themes.js?v=ki3p0uge"></script>
+  <script src="src/utils/constants.js?v=uv5cmffj"></script>
+  <script src="src/utils/eventBus.js?v=i4lpdt1d"></script>
+
+  <!-- Game data (tileTypes needs CONSTANTS, levels needs CONSTANTS) -->
+  <script src="src/game/tileTypes.js?v=ykh910sp"></script>
+  <script src="src/game/levels.js?v=qh4dy53q"></script>
+
+  <!-- Core engine (need CONSTANTS, EventBus) -->
+  <script src="src/game/audio.js?v=93lujqyu"></script>
+  <script src="src/game/amica.js?v=upg7omro"></script>
+  <script src="src/game/renderer.js?v=wk59uicn"></script>
+  <script src="src/game/particles.js?v=9z8k8bb2"></script>
+  <script src="src/game/physics.js?v=1cpuw91c"></script>
+  <script src="src/game/minimap.js?v=ty4dwngm"></script>
+  <script src="src/game/arManager.js?v=o9n2zogg"></script>
+  
+  <!-- Editor -->
+  <script src="src/editor/levelEditor.js?v=tly0osvt"></script>
+  
+  <!-- UI layer -->
+  <script src="src/ui/dialoguePanel.js?v=9o58x5n7"></script>
+  <script src="src/ui/dialogueScript.js?v=5f6hzf81"></script>
+  <script src="src/ui/uiManager.js?v=s3rd8iex"></script>
+  <script src="src/ui/introSplash.js?v=zhoaacwn"></script>
+  <script src="src/ui/splashScreen.js?v=tly0osvt"></script>
+
+  <!-- Optional GLB loader (async, safe to load before gameLogic) -->
+  <script src="src/game/assetLoader.js?v=wy4mojvz"></script>
+
+  <!-- Bomber game modules (need Physics, Renderer) -->
+  <script src="src/game/bombManager.js?v=cotuzkvf"></script>
+  <script src="src/game/enemyManager.js?v=zalt73bp"></script>
+  <script src="src/game/player.js?v=fg5le8sx"></script>
+  <script src="src/game/levelGenerator.js?v=e46xmn7p"></script>
+
+  <!-- Game logic (needs all above) -->
+  <script src="src/game/gameLogic.js?v=48swh9v7"></script>
+
+  <!-- Entry point -->
+  <script src="src/main.js?v=9o58x5n7"></script>
+
+</body>
+</html>
