@@ -69,36 +69,37 @@ const UIManager = (() => {
     _fromEditor = fromEditor;
   }
 
-  function showWin({ steps, portals, isLast }) {
+  function showWin({ steps, bombs, isLast }) {
     DialoguePanel?.clear();
     document.getElementById('btn-menu-from-game')?.classList.remove('cam-visible');
     document.getElementById('btn-editor-from-game')?.classList.remove('cam-visible');
     document.getElementById('btn-fullscreen')?.classList.remove('cam-visible');
     document.getElementById('btn-orbit')?.classList.remove('cam-visible');
     document.getElementById('btn-enter-ar')?.classList.remove('cam-visible');
-    document.getElementById('btn-back-editor-win')?.style.setProperty('display', _fromEditor ? 'block' : 'none');
-
+    
     // In AR: show toast inside ar-dom-overlay instead of blocking overlay
     if (typeof ARManager !== 'undefined' && ARManager.isActive?.()) {
       const toast = document.getElementById('ar-win-toast');
       const stats = document.getElementById('ar-win-stats');
       const next  = document.getElementById('ar-win-next');
       if (toast) {
-        if (stats) stats.textContent = `STEPS: ${steps}  ·  PORTALS: ${portals}`;
+        if (stats) stats.textContent = `STEPS: ${steps}  ·  BOMBS: ${bombs}`;
         if (next)  next.style.display = isLast ? 'none' : '';
         toast.style.display = 'flex';
       }
-      if (ARManager.isActive?.()) ARManager.show3DWin?.();
+      if (!_isTouchDevice()) ARManager.show3DWin?.();
       return;
     }
-
+    
+    document.getElementById('btn-back-editor-win')?.style.setProperty('display', _fromEditor ? 'block' : 'none');
     Minimap.setVisible(false);
     _showTouchControls(false);
-
+    
     document.getElementById('win-steps').textContent   = steps;
-    document.getElementById('win-portals').textContent = portals;
+    document.getElementById('win-bombs').textContent = bombs;
     const nextBtn = document.getElementById('btn-next-level');
     if (nextBtn) nextBtn.style.display = isLast ? 'none' : '';
+    
     _show('win-overlay');
   }
 
@@ -110,17 +111,17 @@ const UIManager = (() => {
     document.getElementById('btn-fullscreen')?.classList.remove('cam-visible');
     document.getElementById('btn-orbit')?.classList.remove('cam-visible');
     document.getElementById('btn-enter-ar')?.classList.remove('cam-visible');
-    document.getElementById('btn-back-editor-fail')?.style.setProperty('display', _fromEditor ? 'block' : 'none');
-
+    
     if (typeof ARManager !== 'undefined' && ARManager.isActive?.()) {
       const toast = document.getElementById('ar-fail-toast');
       if (toast) {
         toast.style.display = 'flex';
       }
-      if (ARManager.isActive?.()) ARManager.show3DFail?.();
+      if (!_isTouchDevice()) ARManager.show3DFail?.();
       return;
     }
-
+    
+    document.getElementById('btn-back-editor-fail')?.style.setProperty('display', _fromEditor ? 'block' : 'none');
     Minimap.setVisible(false);
     _showTouchControls(false);
 
@@ -341,15 +342,17 @@ const UIManager = (() => {
   // ── Touch / fullscreen helpers ────────────────────────────
 
   function _isTouchDevice() {
-    return navigator.maxTouchPoints > 1 || /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const isQuest  = /OculusBrowser|MetaQuest/i.test(navigator.userAgent || '');
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1);
+    return !isQuest && isMobile;
   }
 
   function _showTouchControls(show) {
     const v = show ? 'flex' : 'none';
     const arrows  = document.getElementById('touch-dpad-arrows');
-    const portals = document.getElementById('touch-dpad-portals');
+    const bombs = document.getElementById('touch-dpad-buttons');
     if (arrows)  arrows.style.display  = v;
-    if (portals) portals.style.display = v;
+    if (bombs) bombs.style.display = v;
   }
 
   function _setupFullscreen() {

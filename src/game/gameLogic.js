@@ -275,7 +275,7 @@ const GameLogic = (() => {
     setTimeout(() => {
       UIManager.showWin({
         steps:   Player.getStepCount?.() ?? 0,
-        portals: 0,
+        bombs: 0,
         isLast,
       });
     }, 700);

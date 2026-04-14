@@ -51,6 +51,12 @@ html, body {
 #btn-orbit.cam-visible,
 #btn-enter-ar.cam-visible { display: block; }
 
+body.ar-active #btn-menu-from-game.cam-visible,
+body.ar-active #btn-editor-from-game.cam-visible,
+body.ar-active #btn-fullscreen.cam-visible,
+body.ar-active #btn-orbit.cam-visible,
+body.ar-active #btn-enter-ar.cam-visible { display: none; }
+
 /* ── Scanline overlay ──────────────────────────────────────── */
 body::after {
   content: '';
@@ -933,6 +939,11 @@ body.theme-neon .pdot.active-a {
     bottom: auto !important;
     right: 8px !important;
   }
+  body.ar-active #minimap-canvas {
+    top: 56px !important;
+    bottom: auto !important;
+    right: 8px !important;
+  }
 }
 
 /* AR active: special layout — game board in camera, everything must be
@@ -941,8 +952,8 @@ body.ar-active #dialogue-panel.visible {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 140px) !important;
 }
 body.ar-active #touch-dpad-arrows,
-body.ar-active #touch-dpad-portals {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 140px + 120px) !important;
+body.ar-active #touch-dpad-buttons {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 50px + 120px) !important;
 }
 
 /* HUD top bar: respect safe area top (notch) */

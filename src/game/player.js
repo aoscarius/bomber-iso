@@ -100,7 +100,7 @@ const Player = (() => {
     _keyHandler = e => { if (e.type === 'keydown') _onKey(e.code); };
     window.addEventListener('keydown', _keyHandler);
 
-    // Left-click: BFS walk; Right-click: nothing (no portals)
+    // Left-click: BFS walk; Right-click: nothing (no bombs)
     _mouseHandler = e => {
       if (e.button !== 0) return;
       _handleMouseClick(e);
@@ -114,8 +114,6 @@ const Player = (() => {
     };
     const arActionHandler = ({ action }) => {
       switch (action) {
-        case 'portal-a':
-        case 'portal-b':
         case 'bomb':   _placeBomb(); break;
         case 'up':    _step(CONSTANTS.DIRS.UP);    break;
         case 'down':  _step(CONSTANTS.DIRS.DOWN);  break;
@@ -157,9 +155,6 @@ const Player = (() => {
       'dpad-left':   () => _step(CONSTANTS.DIRS.LEFT),
       'dpad-right':  () => _step(CONSTANTS.DIRS.RIGHT),
       'dpad-bomb':   () => _placeBomb(),
-      // Keep portal buttons as bomb alias in case old HTML is used
-      'dpad-portal-a': () => _placeBomb(),
-      'dpad-portal-b': () => _placeBomb(),
     };
     Object.entries(map).forEach(([id, fn]) => {
       const el = document.getElementById(id);
@@ -272,7 +267,7 @@ const Player = (() => {
     const nx = position.x + dir.dx;
     const nz = position.z + dir.dz;
 
-    // Check if target cell is walkable (no portals, no cubes in Bomber)
+    // Check if target cell is walkable (no bombs, no cubes in Bomber)
     const result = Physics.canMoveTo(position.x, position.z, nx, nz, currentLayer);
     if (!result.ok) { EventBus.emit('player:bumped', { x: nx, z: nz }); return; }
 
@@ -293,7 +288,7 @@ const Player = (() => {
     });
   }
 
-  // ── Mouse click (BFS walk only, no portals) ───────────────
+  // ── Mouse click (BFS walk only, no bombs) ───────────────
 
   function _handleMouseClick(e) {
     try {

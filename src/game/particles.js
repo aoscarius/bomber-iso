@@ -109,8 +109,8 @@ const Particles = (() => {
     setTimeout(() => { ps.stop(); setTimeout(() => { ps.dispose(false); emit.dispose(); }, 1000); }, 120);
   }
 
-  function startPortalSwirl(gx, gz, which) {
-    stopPortalSwirl(which);
+  function startBombswirl(gx, gz, which) {
+    stopBombswirl(which);
     if (!scene) return;
 
     const color = which === 'A'
@@ -138,7 +138,7 @@ const Particles = (() => {
     systems[`swirl_${which}`] = { ps, emit };
   }
 
-  function stopPortalSwirl(which) {
+  function stopBombswirl(which) {
     const key = `swirl_${which}`;
     if (systems[key]) {
       systems[key].ps.stop();
@@ -317,7 +317,7 @@ const Particles = (() => {
 
   return {
     init, clearAll,
-    portalBurst, startPortalSwirl, stopPortalSwirl,
+    portalBurst, startBombswirl, stopBombswirl,
     teleportBurst, startHazardEmbers, buttonFlash,
     explosionBurst, softBlockBurst, enemyDeathBurst,
   };

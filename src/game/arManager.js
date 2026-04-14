@@ -243,7 +243,7 @@ const ARManager = (() => {
     });
 
     // Mesh observer: only handle root-level meshes that are NOT children of a
-    // layer_root (e.g. player mesh, portal rings, reticle). Layer tile meshes
+    // layer_root (e.g. player mesh, bomb, reticle). Layer tile meshes
     // are already covered by the TransformNode observer above.
     _meshObsHandle = _scene.onNewMeshAddedObservable.add(mesh => {
       if (!_arActive || !_boardRoot) return;
@@ -279,6 +279,8 @@ const ARManager = (() => {
   async function exit() {
     if (!_arActive || !_xrBase) return;
     try { await _xrBase.exitXRAsync(); } catch { _onSessionEnd(); }
+    document.body.classList.remove('ar-active');
+    EventBus.emit('ar:exited');
   }
 
   // ── Session end ──────────────────────────────────────────
@@ -322,9 +324,6 @@ const ARManager = (() => {
     _triggerHeld = _squeezeHeld = false; _stickX = _stickY = 0;
     _reticlePose = null;
     if (_boardMoveObs) { try { _scene.onBeforeRenderObservable.remove(_boardMoveObs); } catch(_){} _boardMoveObs = null; }
-
-    document.body.classList.remove('ar-active');
-    EventBus.emit('ar:exited');
   }
 
   function _reportError(msg) {
@@ -419,7 +418,7 @@ const ARManager = (() => {
         n.setEnabled(true);
       }
     });
-    // Also catch root-level meshes (player, portals) with no parent
+    // Also catch root-level meshes (player, bombs) with no parent
     _scene.meshes.forEach(m => {
       if (!_shouldSkip(m) && !m.parent) m.parent = _boardRoot;
     });
@@ -499,7 +498,7 @@ const ARManager = (() => {
     bg.background = '#0d0d12';
     _guiTexture.addControl(bg);
 
-    const title = new BABYLON.GUI.TextBlock('menu-title', 'PORTAL ISO');
+    const title = new BABYLON.GUI.TextBlock('menu-title', 'BOMBER ISO');
     title.color    = '#ff6a00';
     title.fontSize = 28;
     title.fontFamily = 'monospace';
@@ -590,8 +589,8 @@ const ARManager = (() => {
   // ── Controller input ──────────────────────────────────────
   //
   // RIGHT controller only:
-  //   A button         → shoot Portal A
-  //   B button         → shoot Portal B
+  //   A button         → shoot Bomb
+  //   B button         → shoot Bomb
   //   Primary trigger  → if not yet placed: place board
   //                    → quick tap (< 200ms): pick cell / move player
   //                    → held + thumbstick Y: zoom board in/out
@@ -649,16 +648,16 @@ const ARManager = (() => {
         if (hand === 'right') {
           _rightCtrl = ctrl;  // store for per-frame drag
 
-          // A → Portal A
+          // A → Bomb A
           ['a-button'].forEach(id =>
             mc.getComponent(id)?.onButtonStateChangedObservable.add(s => {
-              if (s.pressed) EventBus.emit('ar:controller-action',{action:'portal-a'});
+              if (s.pressed) EventBus.emit('ar:controller-action',{action:'bomb'});
             }));
 
-          // B → Portal B
+          // B → Bomb B
           ['b-button'].forEach(id =>
             mc.getComponent(id)?.onButtonStateChangedObservable.add(s => {
-              if (s.pressed) EventBus.emit('ar:controller-action',{action:'portal-b'});
+              if (s.pressed) EventBus.emit('ar:controller-action',{action:'bomb'});
             }));
 
           // Grip / squeeze

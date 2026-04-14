@@ -47,15 +47,12 @@
     /* ── Touch D-pad ────────────────────────────────────── */
     /* Hidden by default; shown only in-game on touch devices via uiManager */
     #touch-dpad-arrows,
-    #touch-dpad-portals { display: none; pointer-events: auto; }
+    #touch-dpad-buttons { display: none; pointer-events: auto; }
 
     /* Safe-area bottom: clears home-indicator on notch phones */
     #touch-dpad-arrows {
-      position: fixed; bottom: 106px; left: 12px; z-index: 500;
+      position: fixed; bottom: 86px; left: 12px; z-index: 500;
       flex-direction: column; align-items: center; gap: 4px;
-    }
-    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-arrows {
-      bottom: 142px;
     }
     .dpad-row  { display: flex; gap: 4px; align-items: center; }
     .dpad-gap  { width: 48px; }
@@ -70,26 +67,19 @@
     }
     #touch-dpad-arrows button:active { background: rgba(255,106,0,.18); opacity: .7; }
 
-    #touch-dpad-portals {
-      position: fixed; bottom: 106px; right: 12px; z-index: 500;
+    #touch-dpad-buttons {
+      position: fixed; bottom: 86px; right: 12px; z-index: 500;
       flex-direction: column; gap: 10px;
     }
-    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-portals {
-      bottom: 142px;
-    }
-    #touch-dpad-portals button {
+    #touch-dpad-buttons button {
       width: 64px; height: 64px;
       font-size: 14px; letter-spacing: 2px; font-weight: 700;
       font-family: var(--font-mono);
       cursor: pointer; border-radius: 8px;
       touch-action: manipulation; user-select: none; -webkit-user-select: none;  opacity: .8;
     }
-    #touch-dpad-portals button:active { opacity: .7; }
-    #dpad-portal-a {
-      border: 2px solid #0099ff; color: #0099ff;
-      background: rgba(0,153,255,.15);
-    }
-    #dpad-portal-b {
+    #touch-dpad-buttons button:active { opacity: .7; }
+p   #dpad-bomb {
       border: 2px solid #ff6a00; color: #ff6a00;
       background: rgba(255,106,0,.15);
     }
@@ -299,7 +289,7 @@
     * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-panel); }
 
     body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-arrows,
-    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-portals {
+    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-buttons {
       bottom: 142px;
     }
   </style>
@@ -622,7 +612,7 @@
       <div class="win-stats">
         <div class="stat-block"><div class="stat-val" id="win-steps">0</div><div class="stat-lbl">STEPS</div></div>
         <div class="stat-divider"></div>
-        <div class="stat-block"><div class="stat-val" id="win-portals">0</div><div class="stat-lbl">BOMBS PLACED</div></div>
+        <div class="stat-block"><div class="stat-val" id="win-bombs">0</div><div class="stat-lbl">BOMBS PLACED</div></div>
       </div>
       <div class="result-actions">
         <button class="menu-btn primary" id="btn-next-level" data-i18n="win_next">NEXT STAGE ▶</button>
@@ -743,6 +733,7 @@
           <button class="ar-icon-btn" id="ar-btn-rot-left"   title="Rotate left">↺</button>
           <button class="ar-icon-btn" id="ar-btn-rot-right"  title="Rotate right">↻</button>
           <button class="ar-icon-btn" id="ar-btn-scale-up"   title="Scale up">+</button>
+          <button class="ar-icon-btn" id="ar-btn-menu"       title="Menù">☰</button>
         </div>
 
         <!-- Primary actions -->
@@ -768,7 +759,7 @@
     <!-- Touch controls: arrow pad (bottom-left) + portal buttons (bottom-right) -->
     <!-- AR win toast — shown instead of win-overlay when in AR -->
     <div id="ar-win-toast" style="
-      display:none; position:absolute; top:50%; left:50%;
+      display:none; position:absolute; top:35%; left:50%;
       transform:translate(-50%,-50%); z-index:910;
       flex-direction:column; gap:14px; align-items:center;
       background:rgba(8,8,11,.96); border:1px solid #00ff88;
@@ -778,12 +769,23 @@
       <div id="ar-win-stats" style="font-size:9px;letter-spacing:1.5px;color:#5a5a72;"></div>
       <button id="ar-win-next" style="width:100%;padding:11px;background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">NEXT CHAMBER ▶</button>
       <button id="ar-win-retry" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">↺ RETRY</button>
-      <button id="ar-win-menu" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">✕ EXIT AR</button>
+      <button id="ar-win-exit" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">✕ EXIT AR</button>
+    </div>
+    <div id="ar-fail-toast" style="
+      display:none; position:absolute; top:35%; left:50%;
+      transform:translate(-50%,-50%); z-index:910;
+      flex-direction:column; gap:14px; align-items:center;
+      background:rgba(8,8,11,.96); border:1px solid #ff0022;
+      border-top:3px solid #ff0022; padding:28px 36px; min-width:220px;
+      font-family:var(--font-mono); pointer-events:auto; text-align:center;">
+      <div style="font-size:13px;letter-spacing:3px;color:#ff0022;">✗ TEST FAILED</div>
+      <button id="ar-fail-retry" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">↺ RETRY</button>
+      <button id="ar-fail-exit" style="width:100%;padding:11px;background:transparent;border:1px solid #383848;color:#9090a8;font-family:var(--font-mono);font-size:10px;letter-spacing:2px;cursor:pointer;">✕ EXIT AR</button>
     </div>
 
     <!-- AR pause menu -->
     <div id="ar-menu-panel" style="
-      display:none;position:absolute;top:50%;left:50%;
+      display:none;position:absolute;top:35%;left:50%;
       transform:translate(-50%,-50%);z-index:900;
       flex-direction:column;gap:12px;align-items:center;
       background:rgba(8,8,11,.95);border:1px solid #ff6a00;
@@ -805,7 +807,7 @@
   <button id="btn-orbit"          title="Orbit / iso camera">⊙</button>
   <button id="btn-enter-ar"       title="Enter AR mode">◈</button>
 
-  <!-- ── Touch D-pad: arrows bottom-left, portals bottom-right ──────── -->
+  <!-- ── Touch D-pad: arrows bottom-left, bombs bottom-right ──────── -->
   <div id="touch-dpad-arrows">
     <div class="dpad-row"><button id="dpad-up">▲</button></div>
     <div class="dpad-row">
@@ -815,8 +817,8 @@
     </div>
     <div class="dpad-row"><button id="dpad-down">▼</button></div>
   </div>
-  <div id="touch-dpad-portals">
-    <button id="dpad-bomb" style="font-size:20px;">💣</button>
+  <div id="touch-dpad-buttons">
+    <button id="dpad-bomb" style="font-size: 36px;">💣</button>
   </div>
   <div id="touch-dpad" style="display:none;"></div>
 

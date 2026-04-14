@@ -120,7 +120,10 @@
         () => ARManager.rotateBoard?.(15));
       document.getElementById('ar-btn-exit')?.addEventListener('click',
         async () => ARManager.exit());
+      document.getElementById('ar-btn-menu')?.addEventListener('click',
+        () => EventBus.emit('ar:menu'));
 
+      // AR pause menu buttons
       document.getElementById('ar-menu-resume')?.addEventListener('click', () => {
         document.getElementById('ar-menu-panel').style.display = 'none';
       });
@@ -132,15 +135,17 @@
         document.getElementById('ar-menu-panel').style.display = 'none';
         ARManager.resetPlacement?.();
       });
-      document.getElementById('ar-menu-exit')?.addEventListener('click', () => {
+      document.getElementById('ar-menu-exit')?.addEventListener('click', async () => {
         document.getElementById('ar-menu-panel').style.display = 'none';
         ARManager.exit();
       });
 
+      // Enter AR button in HUD (next to fullscreen/orbit)
       document.getElementById('btn-enter-ar')?.addEventListener('click', async () => {
         await ARManager.enter(GameLogic.getCurrentLevelIdx());
       });
 
+      // AR win toast buttons
       function _hideArWinToast() {
         const t = document.getElementById('ar-win-toast');
         if (t) t.style.display = 'none';
@@ -153,9 +158,23 @@
         _hideArWinToast();
         GameLogic.retryLevel?.();
       });
-      document.getElementById('ar-win-menu')?.addEventListener('click', () => {
+      document.getElementById('ar-win-exit')?.addEventListener('click',  async () => {
         _hideArWinToast();
         ARManager.exit();
+      });
+      // AR fail toast buttons
+      function _hideArFailToast() {
+        const t = document.getElementById('ar-fail-toast');
+        if (t) t.style.display = 'none';
+      }
+      document.getElementById('ar-fail-retry')?.addEventListener('click', () => {
+        _hideArFailToast();
+        GameLogic.retryLevel?.();
+      });
+      document.getElementById('ar-fail-exit')?.addEventListener('click',  async () => {
+        _hideArFailToast();
+        ARManager.exit();
+        GameLogic.retryLevel?.();
       });
 
     } catch (err) {
@@ -245,7 +264,7 @@
   EventBus.on('game:all-done', () => {
     UIManager.showWin({
       steps:   Player.getStepCount(),
-      portals: Player.getPortalUses(),
+      bombs: Player.getPortalUses(),
       isLast:  true,
     });
   });
