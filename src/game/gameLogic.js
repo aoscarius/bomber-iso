@@ -211,9 +211,14 @@ const GameLogic = (() => {
 
   // ── Player landing ────────────────────────────────────────
 
+  function _removeUpgrade(x, z) {
+    currentLevel.hidden = currentLevel.hidden.filter(item => item.x !== x || item.z !== z);
+  }
+
   function _onPlayerLanded(x, z) {
     if (!Player.isAlive()) return;
     const tile = Physics.getTile(x, z);
+    const hidden = Physics.getHidden(x, z);
     const T    = CONSTANTS.TILE;
 
     Minimap.setPlayerPosition?.(x, z);
@@ -222,6 +227,29 @@ const GameLogic = (() => {
     if (EnemyManager.isEnemyAt(x, z)) {
       _triggerFail('👾 Caught by an enemy!');
       return;
+    }
+
+    if (hidden !== null) {
+      if (hidden === T.EXIT) {
+        _exitRevealed = true;
+        Physics.setTile(x, z, T.EXIT);
+        Renderer.showExitMesh(x, z);
+        AudioEngine.doorOpenClose?.();
+        _checkWinCondition();
+        return;
+      }
+
+      if (hidden === T.UPGRADE_BOMB ||
+          hidden === T.UPGRADE_RANGE ||
+          hidden === T.UPGRADE_SPEED) {
+        Player.applyUpgrade(hidden);
+        Physics.clearHidden(x, z);
+        _removeUpgrade(x, z);
+        Minimap.removeUpgrade(x, z);
+        Renderer.removeUpgradeMesh(x, z);
+        AudioEngine.upgrade?.();
+        return;
+      }
     }
 
     switch (tile) {
@@ -238,6 +266,8 @@ const GameLogic = (() => {
       case T.UPGRADE_SPEED:
         Player.applyUpgrade(tile);
         Physics.setTile(x, z, T.FLOOR);
+        _removeUpgrade(x, z);
+        Minimap.removeUpgrade(x, z);
         Renderer.removeUpgradeMesh(x, z);
         AudioEngine.upgrade?.();
         break;
@@ -263,6 +293,7 @@ const GameLogic = (() => {
     if (el('hud-range'))   el('hud-range').textContent   = `🔥 ${Player.getBombRange?.() ?? 2}`;
     if (el('hud-enemies')) el('hud-enemies').textContent = `👾 ${EnemyManager.getEnemyCount()}`;
     if (el('step-count'))  el('step-count').textContent  = Player.getStepCount?.() ?? 0;
+    if (el('bombs-count')) el('bombs-count').textContent = Player.getBombsUses?.() ?? 0;
   }
 
   // ── Win / Fail ────────────────────────────────────────────
@@ -274,8 +305,8 @@ const GameLogic = (() => {
     if (typeof AMICA !== 'undefined') AMICA.sayLine?.('win_generic', 200);
     setTimeout(() => {
       UIManager.showWin({
-        steps:   Player.getStepCount?.() ?? 0,
-        bombs: 0,
+        steps: Player.getStepCount?.() ?? 0,
+        bombs: Player.getBombsUses?.() ?? 0,
         isLast,
       });
     }, 700);

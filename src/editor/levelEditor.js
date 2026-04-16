@@ -7,6 +7,7 @@
 const LevelEditor = (() => {
   const CELL = 46;   // Pixels per cell in editor canvas
 
+  let _hidden = [];
   let _grid = [];
   let gridW = 13, gridH = 11;
   let selectedTile = CONSTANTS.TILE.FLOOR;
@@ -35,9 +36,17 @@ const LevelEditor = (() => {
 
   function _resetToEmpty(w, h) {
     gridW = w; gridH = h;
+    _hidden = [];
     _grid = Array.from({ length: h }, () => Array(w).fill(CONSTANTS.TILE.FLOOR));
     for (let x = 0; x < w; x++) { _grid[0][x] = CONSTANTS.TILE.WALL; _grid[h-1][x] = CONSTANTS.TILE.WALL; }
     for (let z = 0; z < h; z++) { _grid[z][0] = CONSTANTS.TILE.WALL; _grid[z][w-1] = CONSTANTS.TILE.WALL; }
+    // Classic Bomber: pillar walls at even x AND even z
+    for (let x = 0; x < w; x++)
+      for (let z = 0; z < h; z++) 
+        if (x % 2 === 0 && z % 2 === 0) {
+          _grid[z][x] = CONSTANTS.TILE.WALL;
+          continue;
+        }
   }
 
   function _makeBlankGrid(w, h) {
@@ -76,7 +85,6 @@ const LevelEditor = (() => {
         selectedTile     = t.id;
         activeTool       = 'paint';
         _pendingLinkDoor = null;
-        _syncToolButtons();
         document.querySelectorAll('.tile-btn').forEach(b => {
           const tid = parseInt(b.dataset.tileId);
           b.classList.toggle('selected', tid === selectedTile);
@@ -187,18 +195,28 @@ const LevelEditor = (() => {
       if (selectedTile !== CONSTANTS.TILE.WALL) return; // border must stay wall
     }
     const T = CONSTANTS.TILE;
+
     // Unique tiles
-    if (selectedTile === T.PLAYER || selectedTile === T.EXIT) {
+    if (isUnique(selectedTile)) {
       for (let zz = 0; zz < gridH; zz++)
         for (let xx = 0; xx < gridW; xx++)
           if (_grid[zz][xx] === selectedTile) _grid[zz][xx] = CONSTANTS.TILE.FLOOR;
+      _hidden = _hidden.filter(item => item.type !== selectedTile);
     }
-    _grid[z][x] = selectedTile;
+    // Hiiden tiles
+    if (isHidden(selectedTile)) {
+      _hidden = _hidden.filter(item => item.x !== x || item.z !== z);
+      _hidden.push({ x, z, type: selectedTile });
+    } else {
+      _grid[z][x] = selectedTile;
+    }
+
     _render();
   }
 
   function _eraseAt(x, z) {
     if (x === 0 || x === gridW-1 || z === 0 || z === gridH-1) return;
+    _hidden = _hidden.filter(item => item.x !== x || item.z !== z);
     _grid[z][x] = CONSTANTS.TILE.FLOOR;
     _render();
   }
@@ -248,6 +266,9 @@ const LevelEditor = (() => {
       id:         9000 + Math.floor(Math.random() * 900),
     });
     gridW = ld.width; gridH = ld.height;
+    _hidden = Array.isArray(ld.hidden) ? ld.hidden.map(item => ({
+        x: item.x, z: item.z, type: item.type,
+      })) : [];
     _grid = ld.grid.map(row => [...row]);
     _resizeCanvas(); _render();
     const wEl = document.getElementById('grid-w');
@@ -277,10 +298,13 @@ const LevelEditor = (() => {
     _ctx.fillStyle = '#07070a';
     _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
 
-    // Tiles
+    // Tiles + Hiddens
     for (let z = 0; z < gridH; z++)
-      for (let x = 0; x < gridW; x++)
-        _drawCell(x, z, _grid[z][x]);
+      for (let x = 0; x < gridW; x++) {
+        const item = _hidden.find(item => item.x === x && item.z === z);
+        hiddenItem = item ? item.type : null;
+        _drawCell(x, z, _grid[z][x], hiddenItem);
+    }
 
     // Grid lines
     _drawGridLines();
@@ -293,7 +317,7 @@ const LevelEditor = (() => {
     }
   }
 
-  function _drawCell(x, z, tileId) {
+  function _drawCell(x, z, tileId, hiddenId = null) {
     const T  = CONSTANTS.TILE;
     const px = x * CELL, py = z * CELL;
 
@@ -315,6 +339,37 @@ const LevelEditor = (() => {
       const label = (meta?.editorLabel || '').replace(/^[^\s]+\s/, '');
       _ctx.fillStyle    = 'rgba(255,255,255,0.9)';
       _ctx.font         = `bold 9px "Share Tech Mono", monospace`;
+      _ctx.textAlign    = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText(label.slice(0,6), px + CELL/2, py + CELL/2);
+    }
+
+    _ctx.fillStyle = _getTileColor(hiddenId);
+
+    // Circle for hiddens
+    if (hiddenId !== null) {
+      const centerX = px + CELL / 2;
+      const centerY = py + CELL / 2;
+      const size = CELL / 3;
+      _ctx.beginPath();
+      if (hiddenId == T.EXIT) {
+        _ctx.arc(centerX, centerY, size, 0, Math.PI * 2);
+      } else {
+        _ctx.moveTo(centerX, centerY - size);
+        _ctx.lineTo(centerX + size, centerY);
+        _ctx.lineTo(centerX, centerY + size);
+        _ctx.lineTo(centerX - size, centerY);
+        _ctx.closePath();     
+      }
+      _ctx.fill();
+    }
+
+    // Label for hidden
+    if (hiddenId !== T.EMPTY && hiddenId !== T.FLOOR && hiddenId !== T.WALL) {
+      const meta  = TileTypes[hiddenId];
+      const label = (meta?.editorLabel || '').replace(/^[^\s]+\s/, '');
+      _ctx.fillStyle    = 'rgba(0,0,0,0.9)';
+      _ctx.font         = `bold 8px "Share Tech Mono", monospace`;
       _ctx.textAlign    = 'center';
       _ctx.textBaseline = 'middle';
       _ctx.fillText(label.slice(0,6), px + CELL/2, py + CELL/2);
@@ -344,6 +399,7 @@ const LevelEditor = (() => {
       amica: { en: amica, it: amica },
       width:  gridW,
       height: gridH,
+      hidden: Array.isArray(_hidden) ? _hidden.map(item => ({ x: item.x, z: item.z, type: item.type })) : [],
       grid:   _grid.map(row => [...row]),
     };
   }
@@ -359,6 +415,7 @@ const LevelEditor = (() => {
       `  hint:  { en: '', it: '' },`,
       `  amica: { en: ${JSON.stringify(data.amica.en)}, it: ${JSON.stringify(data.amica.it)} },`,
       `  width: ${data.width}, height: ${data.height},`,
+      `  hidden: ${JSON.stringify(data.hidden || [])},`,
       `  grid: [`,
       rows + ',',
       `  ],`,
@@ -398,6 +455,9 @@ const LevelEditor = (() => {
         if (!ld?.grid) { _setStatus('Invalid level file.'); return; }
         gridW = ld.width; gridH = ld.height;
         _grid = ld.grid.map(row => [...row]);
+        _hidden = Array.isArray(ld.hidden) ? ld.hidden.map(item => ({
+          x: item.x, z: item.z, type: item.type,
+        })) : [];
         _resizeCanvas(); _render();
         const wEl = document.getElementById('grid-w');
         const hEl = document.getElementById('grid-h');

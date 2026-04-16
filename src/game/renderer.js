@@ -187,10 +187,16 @@ const Renderer = (() => {
 
   function buildLevel(levelData) {
     clearLevel();
-    const { width, height, grid } = levelData;
+    const { width, height, hidden, grid } = levelData;
     for (let z = 0; z < height; z++)
-      for (let x = 0; x < width; x++)
-        _buildTile(grid[z][x], x, z);
+      for (let x = 0; x < width; x++) {
+        const hiddenItem = hidden.find(item => item.x === x && item.z === z);
+        const hiddenId = hiddenItem ? hiddenItem.type : null;
+        if (grid[z][x] === CONSTANTS.TILE.FLOOR && hiddenId !== null) 
+          _buildTile(hiddenId, x, z);
+        else
+          _buildTile(grid[z][x], x, z);
+      }
 
     camera.target = new BABYLON.Vector3(
       (width  / 2) * CONSTANTS.TILE_SIZE,
@@ -304,11 +310,12 @@ const Renderer = (() => {
 
       // ── Exit ──────────────────────────────────────────────
       case T.EXIT: {
-        _sfloor(tileId, mk('efloor'));
-
         const g = _glb(T.EXIT, mk('exit'));
         if (g) { _tag(g.root, tileId); meshMap[mk('exit')] = g.root; }
         else {
+
+          _sfloor(tileId, mk('efloor'));
+          
           const ring = BABYLON.MeshBuilder.CreateTorus(mk('ring'),
             { diameter: TS * 0.44, thickness: 0.08, tessellation: 32 }, scene);
           ring.rotation.x = Math.PI / 2;
@@ -359,6 +366,7 @@ const Renderer = (() => {
   function _buildUpgradeMesh(gx, gz, type) {
     const pos = gridToWorld(gx, gz, 0);
     const key = `upgrade_${gx}_${gz}`;
+    const TH = CONSTANTS.TILE_HEIGHT;
     if (meshMap[key]) return;
 
     const colors = {
@@ -369,7 +377,7 @@ const Renderer = (() => {
     const col = colors[type] || '#00aaff';
 
     const gem = BABYLON.MeshBuilder.CreatePolyhedron(key, { type: 1, size: 0.28 }, scene);
-    gem.position.set(pos.x, 0.52, pos.z);
+    gem.position.set(pos.x, TH + 0.52, pos.z);
     gem.material = getMaterial(col, 0.65);
     shadowGenerator?.addShadowCaster(gem);
     meshMap[key] = gem;
@@ -378,7 +386,7 @@ const Renderer = (() => {
     const obs = scene.onBeforeRenderObservable.add(() => {
       if (!meshMap[key]) { scene.onBeforeRenderObservable.remove(obs); return; }
       t += 0.04;
-      gem.position.y = 0.44 + Math.sin(t) * 0.14;
+      gem.position.y = TH + 0.44 + Math.sin(t) * 0.14;
       gem.rotation.y = t * 0.7;
     });
   }
@@ -405,34 +413,20 @@ const Renderer = (() => {
   }
 
   // ── Show exit after clearing ──────────────────────────────
-
+  function _removeExitFloor(gx, gz) {
+      const mk = s => `${s}_${gx}_${gz}`;
+      const floorMesh = meshMap[mk('efloor')];
+      if (floorMesh) {
+          floorMesh.dispose();
+          delete meshMap[mk('efloor')]
+      }
+  }
+  
   function showExitMesh(gx, gz) {
     const mk = s => `${s}_${gx}_${gz}`;
     if (meshMap[mk('ring')] || meshMap[mk('exit')]) return;
-    const pos = gridToWorld(gx, gz, 0);
-    const TS  = CONSTANTS.TILE_SIZE;
-
-    if (!meshMap[mk('efloor')]) {
-      const f = BABYLON.MeshBuilder.CreateBox(mk('efloor'),
-        { width: TS - 0.04, height: CONSTANTS.TILE_HEIGHT, depth: TS - 0.04 }, scene);
-      f.position = pos.clone(); f.position.y = -CONSTANTS.TILE_HEIGHT / 2;
-      f.material = getMaterial(CONSTANTS.COLOR_EXIT, 0.15);
-      meshMap[mk('efloor')] = f;
-    }
-
-    const ring = BABYLON.MeshBuilder.CreateTorus(mk('ring'),
-      { diameter: TS * 0.44, thickness: 0.08, tessellation: 32 }, scene);
-    ring.rotation.x = Math.PI / 2;
-    ring.position = pos.clone(); ring.position.y = 0.05;
-    ring.material = getMaterial(CONSTANTS.COLOR_EXIT, 0.45);
-    meshMap[mk('ring')] = ring;
-
-    let t = 0;
-    const obs = scene.onBeforeRenderObservable.add(() => {
-      if (!meshMap[mk('ring')]) { scene.onBeforeRenderObservable.remove(obs); return; }
-      t += 0.04;
-      ring.scaling.setAll(0.9 + Math.abs(Math.sin(t)) * 0.15);
-    });
+    _removeExitFloor(gx, gz);
+    _buildTile(CONSTANTS.TILE.EXIT, gx, gz);
   }
 
   // ── Soft wall removal ────────────────────────────────────

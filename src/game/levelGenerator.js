@@ -103,7 +103,8 @@ const LevelGenerator = (() => {
       name:   { en: `STAGE ${id} — ${diffLabels[difficulty]}`, it: `STADIO ${id} — ${diffLabels[difficulty]}` },
       hint:   { en: 'Destroy all enemies to reveal the exit.', it: 'Elimina tutti i nemici per rivelare l\'uscita.' },
       amica:  { en: `Procedural stage — difficulty ${difficulty}.`, it: `Livello procedurale — difficoltà ${difficulty}.` },
-      width, height, hidden,
+      width, height, 
+      hidden,
       grid: grid.map(row => [...row]),
     };
   }

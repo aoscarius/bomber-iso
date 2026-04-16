@@ -263,8 +263,8 @@
 
   EventBus.on('game:all-done', () => {
     UIManager.showWin({
-      steps:   Player.getStepCount(),
-      bombs: Player.getPortalUses(),
+      steps: Player.getStepCount(),
+      bombs: Player.getBombsUses(),
       isLast:  true,
     });
   });

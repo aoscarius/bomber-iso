@@ -336,7 +336,7 @@ const Player = (() => {
     getPosition:   () => ({ ...position }),
     getFacing:     () => ({ ...facing }),
     getStepCount:  () => stepCount,
-    getPortalUses: () => bombsPlaced,   // alias kept for uiManager win stats
+    getBombsUses: () => bombsPlaced,   // alias kept for uiManager win stats
     getMaxBombs:   () => maxBombs,
     getBombRange:  () => bombRange,
     getMoveSpeed:  () => moveSpeed,

@@ -8,6 +8,7 @@
 
 const Physics = (() => {
 
+  let _hidden = [];
   let _grid   = [];
   let _width  = 0;
   let _height = 0;
@@ -18,17 +19,31 @@ const Physics = (() => {
     _width  = levelData.width;
     _height = levelData.height;
     // Single-layer — deep copy the grid
+    _hidden = levelData.hidden.map(item => ({x: item.x, z: item.z, type: item.type,}));
     _grid = levelData.grid.map(row => [...row]);
+  }
+
+  // ── Hidden access ───────────────────────────────────────────
+  
+  function getHidden(x, z) {
+    if (x < 0 || x >= _width || z < 0 || z >= _height) return CONSTANTS.TILE.WALL;
+    const item = _hidden.find(item => item.x === x && item.z === z);
+    return item ? item.type : null;
+  }
+
+  function clearHidden(x, z) {
+    if (x < 0 || x >= _width || z < 0 || z >= _height) return;
+    _hidden = _hidden.filter(item => item.x !== x || item.z !== z);
   }
 
   // ── Tile access ───────────────────────────────────────────
 
-  function getTile(x, z, _layerIdx = 0) {
+  function getTile(x, z) {
     if (x < 0 || x >= _width || z < 0 || z >= _height) return CONSTANTS.TILE.WALL;
     return _grid[z][x];
   }
 
-  function setTile(x, z, tileId, _layerIdx = 0) {
+  function setTile(x, z, tileId) {
     if (x < 0 || x >= _width || z < 0 || z >= _height) return;
     _grid[z][x] = tileId;
   }
@@ -62,7 +77,7 @@ const Physics = (() => {
    * No cube/movable pushing in Bomber.
    * Player cannot walk into a bomb they placed.
    */
-  function canMoveTo(px, pz, nx, nz, _layerIdx = 0) {
+  function canMoveTo(px, pz, nx, nz) {
     const tile = getTile(nx, nz);
     if (isSolidTile(tile)) return { ok: false, pushCube: null, pushMovable: null };
     return { ok: true, pushCube: null, pushMovable: null };
@@ -74,7 +89,7 @@ const Physics = (() => {
 
   // ── BFS pathfind ─────────────────────────────────────────
 
-  function findPath(from, to, _layerIdx = 0) {
+  function findPath(from, to) {
     if (from.x === to.x && from.z === to.z) return [];
     if (isSolidTile(getTile(to.x, to.z))) return [];
 
@@ -99,7 +114,7 @@ const Physics = (() => {
   }
 
   return {
-    init, getTile, setTile, getGrid, getLayerCount,
+    init, getHidden, clearHidden, getTile, setTile, getGrid, getLayerCount,
     isSolidTile,
     isWalkable: (x,z) => !isSolidTile(getTile(x,z)),
     isBlastPassable, canMoveTo,

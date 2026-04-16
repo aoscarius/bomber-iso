@@ -18,10 +18,6 @@ const Minimap = (() => {
   let visible      = true;
   let _enlarged    = false;
 
-  // ── Kept for API compatibility (portal-iso calls these; no-ops here) ──
-  let portalA = null, portalB = null;
-  let _laserSegs = [];
-
   // ── Init ─────────────────────────────────────────────────
 
   function init() {
@@ -80,7 +76,6 @@ const Minimap = (() => {
 
   function loadLevel(levelData) {
     currentLevel = levelData;
-    portalA = portalB = null;
     canvas.width  = levelData.width  * CELL;
     canvas.height = levelData.height * CELL;
     render();
@@ -91,24 +86,23 @@ const Minimap = (() => {
     render();
   }
 
-  // No-ops kept for API compatibility
-  function setPortal(which, cell) {
-    if (which === 'A') portalA = cell; else portalB = cell;
+  function removeUpgrade(x, z) {
+    currentLevel.hidden = currentLevel.hidden.filter(item => item.x !== x || item.z !== z);
+    render();
   }
-  function setLaserSegments(segs) { _laserSegs = segs || []; }
 
   function setVisible(v) {
     visible = v;
     canvas.style.display = v ? 'block' : 'none';
   }
 
-  function updateGrid(layerIdx = 0) {
+  function updateGrid() {
     if (!currentLevel || typeof Physics === 'undefined') return;
     const liveGrid = [];
     for (let z = 0; z < currentLevel.height; z++) {
       liveGrid.push([]);
       for (let x = 0; x < currentLevel.width; x++)
-        liveGrid[z].push(Physics.getTile(x, z, layerIdx));
+        liveGrid[z].push(Physics.getTile(x, z));
     }
     currentLevel = { ...currentLevel, grid: liveGrid };
     render();
@@ -118,19 +112,31 @@ const Minimap = (() => {
 
   function render() {
     if (!ctx || !currentLevel || !visible) return;
-    const { grid, width, height } = currentLevel;
+    const { hidden, grid, width, height } = currentLevel;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for (let z = 0; z < height; z++) {
       for (let x = 0; x < width; x++) {
         const tileId = grid[z][x];
+        const hiddenItem = hidden.find(item => item.x === x && item.z === z);
+        const hiddenId = hiddenItem ? hiddenItem.type : null;
 
         // EMPTY: draw floor base so the map isn't transparent
         if (tileId === CONSTANTS.TILE.EMPTY || tileId === CONSTANTS.TILE.FLOOR ||
             tileId === CONSTANTS.TILE.PLAYER) {
           ctx.fillStyle = FLOOR_COLOR;
           ctx.fillRect(x * CELL, z * CELL, CELL - 1, CELL - 1);
+          
+          // Hiddens: draw fuse dot on top of floor
+          if (hiddenId != null) {
+            ctx.fillStyle = TILE_COLORS[hiddenId];
+            const cx = x * CELL + CELL / 2, cz = z * CELL + CELL / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cz, CELL * 0.22, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
           continue;
         }
 
@@ -144,7 +150,7 @@ const Minimap = (() => {
         if (tileId === CONSTANTS.TILE.UPGRADE_BOMB ||
             tileId === CONSTANTS.TILE.UPGRADE_RANGE ||
             tileId === CONSTANTS.TILE.UPGRADE_SPEED) {
-          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillStyle = TILE_COLORS[tileId];
           const cx = x * CELL + CELL / 2, cz = z * CELL + CELL / 2;
           ctx.beginPath();
           ctx.arc(cx, cz, CELL * 0.22, 0, Math.PI * 2);
@@ -156,6 +162,7 @@ const Minimap = (() => {
           ctx.fillStyle = '#ff6a00';
           ctx.fillRect(x * CELL + CELL - 2, z * CELL, 2, 2);
         }
+
       }
     }
 
@@ -196,8 +203,7 @@ const Minimap = (() => {
   }
 
   return {
-    init, loadLevel, setPlayerPosition,
-    setPortal, setLaserSegments,       // no-ops, kept for API compat
+    init, loadLevel, setPlayerPosition, removeUpgrade,
     setVisible, updateGrid, render,
     isVisible: () => visible,
   };
