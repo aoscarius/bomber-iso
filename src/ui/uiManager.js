@@ -316,6 +316,26 @@ const UIManager = (() => {
         document.getElementById('btn-orbit')?.classList.toggle('active', want);
       }
     });
+    
+    // ── Camera-relative movement toggle ──────────────────────
+    const _camRelEl = document.getElementById('toggle-cam-relative');
+    if (_camRelEl) {
+      // Restore saved preference
+      try {
+        const saved = localStorage.getItem('portal_iso_cam_relative');
+        if (saved !== null) {
+          const on = saved === '1';
+          _camRelEl.checked = on;
+          if (typeof CamRelativeMove !== 'undefined') CamRelativeMove.enable(on);
+        }
+      } catch(_) {}
+
+      _camRelEl.addEventListener('change', e => {
+        const on = e.target.checked;
+        if (typeof CamRelativeMove !== 'undefined') CamRelativeMove.enable(on);
+        try { localStorage.setItem('portal_iso_cam_relative', on ? '1' : '0'); } catch(_) {}
+      });
+    }
 
     document.getElementById('btn-close-settings')?.addEventListener('click', () => {
       _hide('settings-overlay');

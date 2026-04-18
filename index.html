@@ -544,6 +544,11 @@ p   #dpad-bomb {
         <label class="settings-label">ORBIT CAMERA</label>
         <label class="toggle-switch"><input type="checkbox" id="toggle-orbit"/><span class="toggle-slider"></span></label>
       </div>
+      <!-- Camera-relative movement -->
+      <div class="settings-row">
+        <label class="settings-label">CAM-RELATIVE MOVE</label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-cam-relative" checked/><span class="toggle-slider"></span></label>
+      </div>
       <!-- Control scheme -->
       <div class="settings-row settings-row-stacked">
         <label class="settings-label">CONTROL SCHEME</label>
@@ -867,6 +872,7 @@ p   #dpad-bomb {
   <script src="src/game/enemyManager.js?v=zalt73bp"></script>
   <script src="src/game/player.js?v=fg5le8sx"></script>
   <script src="src/game/levelGenerator.js?v=e46xmn7p"></script>
+  <script src="src/game/camRelativeMove.js"></script>
 
   <!-- Game logic (needs all above) -->
   <script src="src/game/gameLogic.js?v=48swh9v7"></script>

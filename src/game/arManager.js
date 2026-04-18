@@ -777,6 +777,37 @@ const ARManager = (() => {
     isActive:      () => _arActive,
     isBoardPlaced: () => _placed,
     isReady:       () => _xrReady,
+    /** Returns the board's current Y rotation in radians (0 when unplaced). */
+    getBoardYaw:   () => _boardRoot ? _boardRoot.rotation.y : 0,
+
+    /**
+     * Returns the angle (radians) from the board's forward axis (+Z in board
+     * local space) to the direction the XR camera is currently looking AT the
+     * board from — i.e. the viewer's heading relative to the board.
+     *
+     * Used by CamRelativeMove to compensate for the user walking around
+     * the table without rotating the board explicitly.
+     *
+     * Returns 0 when not in AR or board not placed.
+     */
+    getViewerRelativeYaw() {
+      if (!_arActive || !_placed || !_boardRoot || !_xrBase?.camera) return 0;
+
+      const cam   = _xrBase.camera;
+      const board = _boardRoot.position;
+
+      // Vector from camera to the board centre, flattened to XZ plane
+      const dx = board.x - cam.globalPosition.x;
+      const dz = board.z - cam.globalPosition.z;
+
+      // World-space angle of "camera looking at board" (atan2 → clockwise from +Z)
+      const worldAngle = Math.atan2(dx, dz);
+
+      // Subtract the board's own Y rotation so the result is in board-local space.
+      // When the viewer is standing at the board's "south" face and the board
+      // is unrotated, this returns 0 (no compensation needed).
+      return worldAngle - _boardRoot.rotation.y;
+    },
   };
 
 })();
