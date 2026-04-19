@@ -172,8 +172,8 @@ const GameLogic = (() => {
       // If all enemies dead AND no exit yet, reveal it now
       if (EnemyManager.getEnemyCount() === 0 && !_exitRevealed && _exitPos) {
         _exitRevealed = true;
-        Physics.setTile(_exitPos.x, _exitPos.z, CONSTANTS.TILE.EXIT);
-        Renderer.showExitMesh(_exitPos.x, _exitPos.z);
+        Physics.setHidden(_exitPos.x, _exitPos.z, CONSTANTS.TILE.EXIT);
+        // Renderer.showExitMesh(_exitPos.x, _exitPos.z);
         AudioEngine.doorOpenClose?.();
         if (typeof AMICA !== 'undefined') AMICA.say?.('All enemies defeated! Find the exit.', 400);
         Minimap.loadLevel({ ...currentLevel, grid: Physics.getGrid() });

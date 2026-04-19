@@ -25,10 +25,21 @@ const Physics = (() => {
 
   // ── Hidden access ───────────────────────────────────────────
   
+  function findHidden(tileId) {
+    const item = _hidden.find(item => item.x === x && item.z === z);
+    return item ? {x, y} : null;
+  }
+
   function getHidden(x, z) {
     if (x < 0 || x >= _width || z < 0 || z >= _height) return CONSTANTS.TILE.WALL;
     const item = _hidden.find(item => item.x === x && item.z === z);
     return item ? item.type : null;
+  }
+
+  function setHidden(x, z, tileId) {
+    if (x < 0 || x >= _width || z < 0 || z >= _height) return;
+    _hidden = _hidden.filter(item => item.x !== x || item.z !== z);
+    _hidden.push({ x, z, type:tileId });
   }
 
   function clearHidden(x, z) {
@@ -114,7 +125,7 @@ const Physics = (() => {
   }
 
   return {
-    init, getHidden, clearHidden, getTile, setTile, getGrid, getLayerCount,
+    init, findHidden, getHidden, setHidden, clearHidden, getTile, setTile, getGrid, getLayerCount,
     isSolidTile,
     isWalkable: (x,z) => !isSolidTile(getTile(x,z)),
     isBlastPassable, canMoveTo,
