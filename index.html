@@ -44,46 +44,6 @@
     #btn-enter-ar:hover { color: #e2e2ee; border-color: #ff6a00; }
     #btn-orbit.active   { color: #ff6a00; border-color: #ff6a00; }
 
-    /* ── Touch D-pad ────────────────────────────────────── */
-    /* Hidden by default; shown only in-game on touch devices via uiManager */
-    #touch-dpad-arrows,
-    #touch-dpad-buttons { display: none; pointer-events: auto; }
-
-    /* Safe-area bottom: clears home-indicator on notch phones */
-    #touch-dpad-arrows {
-      position: fixed; bottom: 86px; left: 12px; z-index: 500;
-      flex-direction: column; align-items: center; gap: 4px;
-    }
-    .dpad-row  { display: flex; gap: 4px; align-items: center; }
-    .dpad-gap  { width: 48px; }
-
-    #touch-dpad-arrows button {
-      width: 52px; height: 52px;
-      background: rgba(0,0,0,.75);
-      border: 1px solid rgba(255,106,0,.55);
-      color: #ff6a00; font-size: 20px;
-      cursor: pointer; border-radius: 6px;
-      touch-action: manipulation; user-select: none; -webkit-user-select: none; opacity: .8;
-    }
-    #touch-dpad-arrows button:active { background: rgba(255,106,0,.18); opacity: .7; }
-
-    #touch-dpad-buttons {
-      position: fixed; bottom: 86px; right: 12px; z-index: 500;
-      flex-direction: column; gap: 10px;
-    }
-    #touch-dpad-buttons button {
-      width: 64px; height: 64px;
-      font-size: 14px; letter-spacing: 2px; font-weight: 700;
-      font-family: var(--font-mono);
-      cursor: pointer; border-radius: 8px;
-      touch-action: manipulation; user-select: none; -webkit-user-select: none;  opacity: .8;
-    }
-    #touch-dpad-buttons button:active { opacity: .7; }
-p   #dpad-bomb {
-      border: 2px solid #ff6a00; color: #ff6a00;
-      background: rgba(255,106,0,.15);
-    }
-
     /* ── Mobile responsive ──────────────────────────────── */
     /* Portrait mobile ≤ 480px */
     @media (max-width: 480px) {
@@ -115,7 +75,7 @@ p   #dpad-bomb {
       .controls-legend { display: none !important; }
       #dialogue-panel.visible { bottom: 160px !important; }
     }
-  
+
     /* ── Splash screen ──────────────────────────────────── */
     #splash-screen {
       position: fixed; inset: 0; z-index: 9999;
@@ -287,11 +247,6 @@ p   #dpad-bomb {
     ::-webkit-scrollbar-thumb { background: var(--border); }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
     * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-panel); }
-
-    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-arrows,
-    body:has(#ar-dom-overlay:not([style*="display:none"])) #touch-dpad-buttons {
-      bottom: 142px;
-    }
   </style>
 </head>
 <body>
@@ -813,20 +768,22 @@ p   #dpad-bomb {
   <button id="btn-orbit"          title="Orbit / iso camera">⊙</button>
   <button id="btn-enter-ar"       title="Enter AR mode">◈</button>
 
-  <!-- ── Touch D-pad: arrows bottom-left, bombs bottom-right ──────── -->
-  <div id="touch-dpad-arrows">
-    <div class="dpad-row"><button id="dpad-up">▲</button></div>
-    <div class="dpad-row">
-      <button id="dpad-left">◀</button>
-      <span class="dpad-gap"></span>
-      <button id="dpad-right">▶</button>
-    </div>
-    <div class="dpad-row"><button id="dpad-down">▼</button></div>
+  <!-- Mobile Interface -->
+  <div class="mobile-controls" id="mobile-controls">
+      <!-- Nintendo D-Pad Cross -->
+      <div class="dpad-container">
+          <div class="btn-dpad btn-up" id="dpad-up">▲</div>
+          <div class="btn-dpad btn-left" id="dpad-left">◀</div>
+          <div class="btn-dpad btn-center"></div>
+          <div class="btn-dpad btn-right" id="dpad-right">▶</div>
+          <div class="btn-dpad btn-down" id="dpad-down">▼</div>
+      </div>
+      <!-- Slanted Action Buttons -->
+      <div class="action-buttons">
+          <div class="btn-action" id="action-B">B</div>
+          <div class="btn-action" id="action-A">A</div>
+      </div>
   </div>
-  <div id="touch-dpad-buttons">
-    <button id="dpad-bomb" style="font-size: 36px;">💣</button>
-  </div>
-  <div id="touch-dpad" style="display:none;"></div>
 
   <!-- BabylonJS render target (lowest z-index) -->
   <canvas id="game-canvas"></canvas>
@@ -853,10 +810,10 @@ p   #dpad-bomb {
   <script src="src/game/physics.js?v=1cpuw91c"></script>
   <script src="src/game/minimap.js?v=ty4dwngm"></script>
   <script src="src/game/arManager.js?v=o9n2zogg"></script>
-  
+
   <!-- Editor -->
   <script src="src/editor/levelEditor.js?v=tly0osvt"></script>
-  
+
   <!-- UI layer -->
   <script src="src/ui/dialoguePanel.js?v=9o58x5n7"></script>
   <script src="src/ui/dialogueScript.js?v=5f6hzf81"></script>

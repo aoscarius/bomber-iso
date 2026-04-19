@@ -132,7 +132,12 @@ const Player = (() => {
       ['ar:pointer-hover',     arHoverHandler],
     ];
 
-    _setupTouchDpad();
+    // Multitouch test
+    const supportsTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (supportsTouch && navigator.maxTouchPoints > 1)
+      _setupMTouchDpad();
+    else
+      _setupTouchDpad();
 
     EventBus.on('ar:entered', () => { _platform = 'ar'; _setupARHighlight(); });
     EventBus.on('ar:exited',  () => { _detectPlatform(); _clearARHighlight(); });
@@ -148,20 +153,107 @@ const Player = (() => {
 
   // ── Touch D-pad ───────────────────────────────────────────
 
+  function _setupMTouchDpad() {
+    const activeKeys = new Set();
+    let moveInterval = null;
+
+    // Haptic Feedback Helper
+    const _vibrate = () => {
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate(10); // 10ms vibration for a crisp feel
+      }
+    };
+
+    const _crm = dir => typeof CamRelativeMove !== 'undefined' 
+      ? CamRelativeMove.remap(dir) : dir;
+
+    const map = {
+      'dpad-up':    () => _step(_crm(CONSTANTS.DIRS.DOWN)),
+      'dpad-down':  () => _step(_crm(CONSTANTS.DIRS.UP)),
+      'dpad-left':  () => _step(_crm(CONSTANTS.DIRS.LEFT)),
+      'dpad-right': () => _step(_crm(CONSTANTS.DIRS.RIGHT)),
+      'action-A':   () => _placeBomb(),
+      'action-B':   () => _placeBomb(),
+    };
+
+    const handleTouch = (e) => {
+      e.preventDefault();
+      const currentlyPressed = new Set();
+
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
+        let target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const btn = target?.closest('.btn-dpad, .btn-action');
+        if (btn && map[btn.id]) {
+          currentlyPressed.add(btn.id);
+        }
+      }
+
+      // New presses & visual activation
+      currentlyPressed.forEach(id => {
+        if (!activeKeys.has(id)) {
+          activeKeys.add(id);
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active'); // Feedback ON
+          _vibrate(); map[id](); 
+        }
+      });
+
+      // Releases & visual deactivation
+      activeKeys.forEach(id => {
+        if (!currentlyPressed.has(id)) {
+          activeKeys.delete(id);
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('active'); // Feedback OFF
+        }
+      });
+
+      // Movement Loop logic
+      const isDirectionalPressed = [...activeKeys].some(id => id.startsWith('dpad'));
+      if (isDirectionalPressed && !moveInterval) {
+        moveInterval = setInterval(() => {
+          activeKeys.forEach(id => {
+            if (id.startsWith('dpad')) map[id]();
+          });
+        }, 150);
+      } else if (!isDirectionalPressed && moveInterval) {
+        clearInterval(moveInterval);
+        moveInterval = null;
+      }
+    };
+
+    const container = document.getElementById('mobile-controls');
+    if (!container) return;
+
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(eventType => {
+      container.addEventListener(eventType, handleTouch, { passive: false });
+    });
+  }
+
   function _setupTouchDpad() {
+    // Haptic Feedback Helper
+    const _vibrate = () => {
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate(10); // 10ms vibration for a crisp feel
+      }
+    };
+
     const _crm = dir => typeof CamRelativeMove !== 'undefined'
       ? CamRelativeMove.remap(dir) : dir;
+
     const map = {
-      'dpad-up':       () => _step(_crm(CONSTANTS.DIRS.DOWN)),
-      'dpad-down':     () => _step(_crm(CONSTANTS.DIRS.UP)),
-      'dpad-left':     () => _step(_crm(CONSTANTS.DIRS.LEFT)),
-      'dpad-right':    () => _step(_crm(CONSTANTS.DIRS.RIGHT)),
-      'dpad-bomb':   () => _placeBomb(),
+      'dpad-up':    () => _step(_crm(CONSTANTS.DIRS.DOWN)),
+      'dpad-down':  () => _step(_crm(CONSTANTS.DIRS.UP)),
+      'dpad-left':  () => _step(_crm(CONSTANTS.DIRS.LEFT)),
+      'dpad-right': () => _step(_crm(CONSTANTS.DIRS.RIGHT)),
+      'action-A':   () => _placeBomb(),
+      'action-B':   () => _placeBomb(),
     };
     Object.entries(map).forEach(([id, fn]) => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('touchstart', e => { e.preventDefault(); fn(); }, { passive: false });
+      el.addEventListener('touchstart', e => { e.preventDefault(); fn(); _vibrate; el.classList.add('active'); }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); fn(); el.classList.remove('active'); }, { passive: false });
       el.addEventListener('mousedown',  e => { e.preventDefault(); fn(); });
     });
   }

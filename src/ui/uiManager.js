@@ -369,10 +369,8 @@ const UIManager = (() => {
 
   function _showTouchControls(show) {
     const v = show ? 'flex' : 'none';
-    const arrows  = document.getElementById('touch-dpad-arrows');
-    const bombs = document.getElementById('touch-dpad-buttons');
-    if (arrows)  arrows.style.display  = v;
-    if (bombs) bombs.style.display = v;
+    const mcontrols  = document.getElementById('mobile-controls');
+    if (mcontrols)  mcontrols.style.display  = v;
   }
 
   function _setupFullscreen() {
