@@ -113,12 +113,14 @@ const Player = (() => {
       if (action === 'move') { _cancelPath(); _moveToCell(x, z); }
     };
     const arActionHandler = ({ action }) => {
+      const _crm = dir => typeof CamRelativeMove !== 'undefined' 
+        ? CamRelativeMove.remap(dir) : dir;
       switch (action) {
+        case 'up':    _step(_crm(CONSTANTS.DIRS.UP));    break;
+        case 'down':  _step(_crm(CONSTANTS.DIRS.DOWN));  break;
+        case 'left':  _step(_crm(CONSTANTS.DIRS.LEFT));  break;
+        case 'right': _step(_crm(CONSTANTS.DIRS.RIGHT)); break;
         case 'bomb':   _placeBomb(); break;
-        case 'up':    _step(CONSTANTS.DIRS.UP);    break;
-        case 'down':  _step(CONSTANTS.DIRS.DOWN);  break;
-        case 'left':  _step(CONSTANTS.DIRS.LEFT);  break;
-        case 'right': _step(CONSTANTS.DIRS.RIGHT); break;
       }
     };
     const arHoverHandler  = ({ mesh }) => _onARHover(mesh);
