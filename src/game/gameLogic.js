@@ -59,6 +59,10 @@ const GameLogic = (() => {
 
     Physics.init(levelData);
     Renderer.buildLevel(levelData);
+    // In AR: re-centre the board pivot so rotation uses the level's geometric centre.
+    if (typeof ARManager !== 'undefined' && ARManager.isActive?.()) {
+      ARManager.centreBoard();
+    }
     Particles.clearAll();
     BombManager.reset();
     EnemyManager.reset();

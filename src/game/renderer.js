@@ -23,6 +23,9 @@ const Renderer = (() => {
   const meshMap  = {};
   const matCache = {};
 
+  // Per-layer state
+  let _currentWidth  = 0;
+  let _currentHeight = 0;
   let _orbitUnlocked = false;
   let _cameraAnimObs = null;
 
@@ -188,6 +191,7 @@ const Renderer = (() => {
   function buildLevel(levelData) {
     clearLevel();
     const { width, height, hidden, grid } = levelData;
+    _currentWidth  = width; _currentHeight = height;
     for (let z = 0; z < height; z++)
       for (let x = 0; x < width; x++) {
         const hiddenItem = hidden.find(item => item.x === x && item.z === z);
@@ -784,6 +788,19 @@ const Renderer = (() => {
     getEngine: () => engine,
     getCamera: () => camera,
 
+    /**
+     * Returns the world-space centre of the currently loaded level.
+     * Used by ARManager to offset the board pivot to the level centre.
+     * Returns {x, z} in TILE_SIZE units (same as gridToWorld).
+     */
+    getLevelCenter() {
+      const TS = CONSTANTS.TILE_SIZE;
+      return {
+        x: (_currentWidth  / 2) * TS,
+        z: (_currentHeight / 2) * TS,
+      };
+    },
+    
     // AR passthrough (called by arManager)
     setARTransparent(transparent) {
       if (transparent) {

@@ -31,7 +31,8 @@ const ARManager = (() => {
   let _xrHelper     = null;
   let _xrBase       = null;
   let _hitTest      = null;
-  let _boardRoot    = null;
+  let _boardRoot    = null;   // world-space anchor (pivot = level centre)
+  let _boardOffset  = null;   // child node offset by -halfW,-halfH so meshes centre correctly
   let _reticle      = null;
   let _reticlePose  = null;   // Latest hit-test result
   let _arActive     = false;
@@ -117,6 +118,17 @@ const ARManager = (() => {
     if (_arActive) return;
     if (!_xrReady || !_xrBase) { _reportError('AR not ready — try refreshing.'); return; }
     _currentLevelIdx = levelIdx;
+
+    // Pre-clear canvas before entering XR so any stale frame from a previous
+    // session doesn't flash during the XR compositor startup transition.
+    try {
+      const eng = Renderer.getEngine?.();
+      if (eng) { eng.restoreDefaultFramebuffer?.(); eng.wipeCaches?.(true); }
+      _scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+      _scene.autoClear  = false;
+      _scene.render();
+    } catch(_) {}
+
     try {
       await _xrBase.enterXRAsync(
         'immersive-ar', 'local-floor', _xrHelper.renderTarget,
@@ -218,6 +230,11 @@ const ARManager = (() => {
     _boardRoot.scaling.setAll(AR_SCALE);
     _boardRoot.setEnabled(false);
 
+    // _boardOffset: child node centred on the level.
+    // Translation is updated in _centreBoard() after level dims are known.
+    _boardOffset = new BABYLON.TransformNode('ar-board-offset', _scene);
+    _boardOffset.parent = _boardRoot;
+
     // Hide ALL existing game meshes — they'll be destroyed on auto-placement
     _scene.meshes.slice().forEach(m => {
       if (!_shouldSkip(m)) m.isVisible = false;
@@ -238,7 +255,7 @@ const ARManager = (() => {
           node.setEnabled(false);
           return;
         }
-        node.parent = _boardRoot;
+        node.parent = _boardOffset ?? _boardRoot;
       }
     });
 
@@ -254,7 +271,7 @@ const ARManager = (() => {
         mesh.isVisible = false;
         return;
       }
-      mesh.parent = _boardRoot;
+      mesh.parent = _boardOffset ?? _boardRoot;
     });
 
     // Auto-place board 1m ahead immediately so user sees the level right away
@@ -291,13 +308,78 @@ const ARManager = (() => {
     _scene.clearColor = new BABYLON.Color4(0.04, 0.04, 0.07, 1);
     _scene.autoClear  = true;
 
+    // ── Canvas cleanup — Android Chrome WebXR stale-frame fix ──
+    //
+    // Root cause: when a WebXR session ends, Chrome Android unbinds the
+    // XR compositor surface but leaves the last XR-rendered frame pixels
+    // in the canvas backbuffer. BabylonJS's own render loop hasn't run
+    // since the XR session took over, so nothing overwrites those pixels.
+    // Each enter/exit cycle adds another "ghost" layer in a new position.
+    //
+    // Fix: immediately after session end, obtain the raw WebGL context
+    // from the BabylonJS engine, bind the default framebuffer (index 0),
+    // clear it to transparent/black, then stop and restart the BabylonJS
+    // render loop so the engine re-establishes its own framebuffer state.
+    // The three-rAF cascade catches different vendor timing behaviours.
+    const _nukeStaleFrame = () => {
+      try {
+        const eng = Renderer.getEngine?.();
+        if (!eng) return;
+
+        // Get the raw WebGL context (works for both WebGL1 and WebGL2)
+        const gl = eng._gl ?? eng.getRenderingContext?.();
+        if (gl) {
+          // Bind the default (non-XR) framebuffer
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          // Clear to solid opaque dark — matches the desktop scene background
+          gl.clearColor(0.04, 0.04, 0.07, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+        }
+
+        // Stop the render loop so BabylonJS fully releases its state
+        eng.stopRenderLoop();
+
+        // Restart: this re-registers the render loop against the default
+        // framebuffer and forces a fresh scene render
+        eng.runRenderLoop(() => { _scene.render(); });
+
+      } catch (_) {}
+    };
+
+    // Three-rAF cascade:
+    //   Frame 0: immediately — clears while XR surface is still being released
+    //   Frame 1: after browser processes XR session end
+    //   Frame 2: safety net for slow devices (Pixel 6a, older Samsung, etc.)
+    //
+    // IMPORTANT: body.ar-active (which hides the canvas via CSS opacity:0)
+    // is kept active until the final frame so the stale XR pixels are
+    // never visible. It is removed inside the last callback.
+    _nukeStaleFrame();
+    requestAnimationFrame(() => {
+      _nukeStaleFrame();
+      requestAnimationFrame(() => {
+        _nukeStaleFrame();
+        // Canvas is now clean — reveal it by removing the ar-active class
+        document.body.classList.remove('ar-active');
+        // Final render with full scene to restore desktop view cleanly
+        try { _scene.render(); } catch(_) {}
+      });
+    });
+
     if (_boardRoot && _scene) {
+      // Unparent meshes from both _boardOffset (direct children of offset)
+      // and _boardRoot (e.g. _boardOffset itself was already disposed above)
       _scene.meshes.slice().forEach(m => {
-        if (m.parent === _boardRoot) { m.parent = null; m.computeWorldMatrix(true); }
+        if (m.parent === _boardOffset || m.parent === _boardRoot) {
+          m.parent = null; m.computeWorldMatrix(true);
+        }
       });
       _scene.transformNodes.slice().forEach(n => {
-        if (n.parent === _boardRoot) { n.parent = null; n.computeWorldMatrix(true); }
+        if (n.parent === _boardOffset || n.parent === _boardRoot) {
+          n.parent = null; n.computeWorldMatrix(true);
+        }
       });
+      if (_boardOffset) { _boardOffset.dispose(); _boardOffset = null; }
       _boardRoot.dispose(); _boardRoot = null;
     }
 
@@ -324,6 +406,9 @@ const ARManager = (() => {
     _triggerHeld = _squeezeHeld = false; _stickX = _stickY = 0;
     _reticlePose = null;
     if (_boardMoveObs) { try { _scene.onBeforeRenderObservable.remove(_boardMoveObs); } catch(_){} _boardMoveObs = null; }
+    
+    // (ar-active class removed inside the rAF cascade above, after canvas is clean)
+    EventBus.emit('ar:exited');
   }
 
   function _reportError(msg) {
@@ -414,15 +499,19 @@ const ARManager = (() => {
     // (created before _nodeObsHandle was active — e.g. from a pre-built level)
     _scene.transformNodes.forEach(n => {
       if (/^layer_root_/.test(n.name) && !_shouldSkip(n)) {
-        n.parent = _boardRoot;
+        n.parent = _boardOffset ?? _boardRoot;
         n.setEnabled(true);
       }
     });
     // Also catch root-level meshes (player, bombs) with no parent
     _scene.meshes.forEach(m => {
-      if (!_shouldSkip(m) && !m.parent) m.parent = _boardRoot;
+      if (!_shouldSkip(m) && !m.parent) m.parent = _boardOffset ?? _boardRoot;
     });
 
+    // Build level — new meshes will be parented to boardRoot by _meshObsHandle.
+    // centreBoard() will be called by gameLogic after Renderer.buildLevel() completes.
+    // Call it preemptively here too in case the level was already built before placement.
+    _centreBoard();
     // Build level — new meshes will be parented to boardRoot by _meshObsHandle
     EventBus.emit('ar:rebuild-level', { levelIdx: _currentLevelIdx });
     EventBus.emit('ar:placed');
@@ -769,10 +858,35 @@ const ARManager = (() => {
     _boardRoot.rotation.y += deg * Math.PI / 180;
   }
 
+  /**
+   * Update _boardOffset translation so that the pivot of _boardRoot
+   * falls exactly at the geometric centre of the rendered level.
+   *
+   * Call this once after each level is built in AR.
+   * Without this, all rotations and the viewer-relative yaw calculation
+   * would use the (0,0) corner as pivot instead of the centre.
+   *
+   * The offset is in _boardRoot LOCAL space (before scale), so we use
+   * raw TILE_SIZE units — _boardRoot.scaling handles the world-space size.
+   */
+  function _centreBoard() {
+    if (!_boardOffset) return;
+    if (typeof Renderer === 'undefined') return;
+
+    const centre = Renderer.getLevelCenter?.();
+    if (!centre) return;
+
+    // Translate the offset node by -half so that the board centre
+    // aligns with the _boardRoot origin (the world anchor point).
+    _boardOffset.position.set(-centre.x, 0, -centre.z);
+  }
+
   return {
     init, isSupported, enter, exit,
     placeBoardOnTap, lockBoard, resetPlacement,
     rescaleBoard, rotateBoard,
+    /** Call after each level build in AR to centre the pivot on the level. */
+    centreBoard: _centreBoard,
     show3DWin, show3DFail,
     isActive:      () => _arActive,
     isBoardPlaced: () => _placed,

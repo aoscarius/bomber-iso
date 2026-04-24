@@ -42,6 +42,20 @@ html, body {
   position: fixed; inset: 0;
   width: 100% !important; height: 100% !important;
   display: block;
+  /* Prevent CSS-level ghost compositing on WebXR session transitions */
+  will-change: auto;
+}
+
+/* During AR session: canvas is owned by XR compositor */
+body.ar-active #game-canvas {
+  opacity: 0;          /* hide the stale BabylonJS canvas while XR owns it */
+  pointer-events: none;
+}
+
+/* On AR exit: fade the desktop canvas back in over 120ms */
+body:not(.ar-active) #game-canvas {
+  opacity: 1;
+  transition: opacity 0.12s ease;
 }
 
 /* Camera buttons become visible when game is active */
